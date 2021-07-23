@@ -5,7 +5,7 @@ import logging
 import tksvg
 from enum import Enum
 from photos import Photos
-from ecuacionrecta import *
+from utilitygraph import *
 # pip install svglib
 # libreria svgpathtools
 # libreria pyinkscape -pypi
