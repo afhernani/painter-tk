@@ -173,14 +173,19 @@ class main:
         # find all objects within select box
         selectedPointers = []
         for i in self.c.find_enclosed(x1, y1, x2, y2):
-            x3, y3, x4, y4 = self.c.coords(i)
-            if x3>x1 and x4<x2 and y3>y1 and y4<y2:
-                selectedPointers.append(i)
+            points = self.c.coords(i)
+            log.info(f"type selected: {self.c.type(i)}")
+            tmp     = self.c.itemconfigure(i)
+            options = dict((v0, v4) for v0, v1, v2, v3, v4 in tmp.values())
+            log.info(f"option object selected: {options}")
+            self.c.itemconfig(i, {'state': DISABLED} )
+            # if x3>x1 and x4<x2 and y3>y1 and y4<y2:
+            selectedPointers.append(i)
         self.Callback(selectedPointers)
 
     # function to receive IDs of selected items
     def Callback(self, pointers):
-        log.info(pointers)
+        log.info(f"Callback: {pointers}")
 
     def changevariable(self, *args):
         log.info(f"variable: {self.modo.get()}")
