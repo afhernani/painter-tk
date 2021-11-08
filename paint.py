@@ -58,6 +58,7 @@ class main:
         self.c.configure(cursor="")
 
     def __paint(self, e):
+        """Button-1 mouse Motion """
         if self.modo.get() == 'P':
             if self.old_x and self.old_y:
                 self.c.create_line(self.old_x, self.old_y, e.x, e.y, 
@@ -72,12 +73,16 @@ class main:
             if self.lin_x and self.lin_y:
                 puntos = rectasCircunferencia(*[(self.lin_x, self.lin_y), (e.x, e.y)])
                 self.c.coords(self.linea, *puntos)
+        elif self.modo.get()== 'R':
+            if self.lin_x and self.lin_y:
+                puntos = rectasRectangulo(*[(self.lin_x, self.lin_y), (e.x, e.y)], n=4)
+                self.c.coords(self.linea, *puntos)
 
         self.old_x = e.x
         self.old_y = e.y
 
     def __selectstart(self, e):
-        
+        """Button-1 mouse press, start action draw"""
         self.lin_x, self.lin_y = e.x, e.y
         if self.modo.get() == 'L':
             self.linea = self.c.create_line(self.lin_x, self.lin_y, 
@@ -87,8 +92,12 @@ class main:
             puntos = rectasCircunferencia(*[(self.lin_x, self.lin_y), (self.lin_x, self.lin_y)])
             self.linea = self.c.create_line(*puntos)
             log.info(f"linea: {self.linea}")
+        elif self.modo.get() == 'R':
+            puntos = rectasRectangulo(*[(self.lin_x, self.lin_y), (self.lin_x, self.lin_y)], n=4)
+            self.linea = self.c.create_line(*puntos)
 
     def __reset(self,e):    #reseting or cleaning the canvas 
+        """('<ButtonRelease-1>',self.__reset) mouse button soltar """
         self.old_x = None
         self.old_y = None
         if self.modo.get() == 'L':
@@ -107,6 +116,12 @@ class main:
             self.c.delete(self.linea)
             self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
                                 capstyle=ROUND, smooth=False, tags='circle')
+            self.lin_x = self.lin_y = None
+        elif self.modo.get() == 'R':
+            puntos = self.c.coords(self.linea)
+            self.c.delete(self.linea)
+            self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
+                                capstyle=ROUND, smooth=False, tags='rectangle')
             self.lin_x = self.lin_y = None
 
     def changeW(self,e): #change Width of pen through slider
