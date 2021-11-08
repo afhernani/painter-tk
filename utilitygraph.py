@@ -1,6 +1,7 @@
 import numpy as np
 from numpy import ones, vstack
 from numpy.linalg import lstsq
+import sympy as sm
 import math
 import logging
 
@@ -56,6 +57,50 @@ def vectorP(*points):
     origen, final = points
     return final[0]-origen[0], final[1]-origen[1]
 
+def rectasRectangulo(*points, n=3):
+    origen, final = points
+    # segmt = sm.geometry.Segment(origen, final)
+    # ptm = segmt.midpoint
+    # Vptm = np.array([ptm.coordinates[0].evalf(), ptm.coordinates[1].evalf()])
+    Vorigen = np.array([origen[0], origen[1]])
+    Vfinal = np.array([final[0]-origen[0], final[1]-origen[1]])
+
+    ModVfinal = np.linalg.norm(Vfinal)
+    if ModVfinal == 0: ModVfinal=1
+    Vunt = Vfinal / ModVfinal
+    Vmedio = Vunt * (ModVfinal / 2)
+    Vposm = Vmedio + Vorigen
+    if n < 3: n=3
+    r = ModVfinal / 2
+    figura = sm.geometry.Polygon(Vposm, r, n=n)
+    """# ---------
+    x = Vposm
+    y = np.array([-1, -1])
+    th = np.arccos( np.dot(x, y) / (np.linalg.norm(x)*np.linalg.norm(y)) )
+    log.info(f"polygon angule: {th}")
+    # -------
+    figura.spin(th)"""
+    
+    puntos = []
+    
+    for punto in figura.vertices:
+        pp = np.array([punto.coordinates[0].evalf(),
+                       punto.coordinates[1].evalf()])
+        posix = pp
+        log.info(f"posix: {posix}")
+        puntos.extend([posix[0], posix[1]])
+
+    if len(puntos)>0:
+        puntos.extend([puntos[0], puntos[1]]) #cerramos el poligono
+    # log.info(f"Vertices: {figura.vertices}")
+    # log.info(f"segmento: {segmt}, rectasRectangulo: {ptm.coordinates}")
+    # log.info(f"Vorigen: {Vorigen}, Vptm: {Vptm}")
+    '''log.info(f"vorigen: {Vorigen}, vfinal: {Vfinal}, vpostr: {Vpostr}, NormalVpostr: {NormalVpostr}")
+    log.info(f"Vunit_Vpostr: {Vunit_Vpostr}")
+    log.info(f"posicion centro radio: {Vposm}")
+    log.info(f"Puntos: {puntos}")'''
+    return puntos
+
 def rectasCircunferencia(*points):
     origen, final = points
     vector = vectorP(*points)
@@ -92,9 +137,10 @@ def main():
     log.info(f"punto medio: {m}")
     rm = razonMedia(*points, r=3)
     log.info(f"razon: {rm}")
-    pc = rectasCircunferencia(*points)
-    print(pc); print(len(pc))
-
+    #pc = rectasCircunferencia(*points)
+    #print(pc); print(len(pc))
+    puntos = rectasRectangulo(*points, n=4)
+    log.info(f"puntos: {puntos}")
 
 if __name__ == '__main__':
     main()
