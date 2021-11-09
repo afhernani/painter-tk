@@ -59,47 +59,39 @@ def vectorP(*points):
 
 def rectasRectangulo(*points, n=3):
     origen, final = points
-    # segmt = sm.geometry.Segment(origen, final)
-    # ptm = segmt.midpoint
-    # Vptm = np.array([ptm.coordinates[0].evalf(), ptm.coordinates[1].evalf()])
-    Vorigen = np.array([origen[0], origen[1]])
-    Vfinal = np.array([final[0]-origen[0], final[1]-origen[1]])
-
-    ModVfinal = np.linalg.norm(Vfinal)
-    if ModVfinal == 0: ModVfinal=1
-    Vunt = Vfinal / ModVfinal
-    Vmedio = Vunt * (ModVfinal / 2)
-    Vposm = Vmedio + Vorigen
-    if n < 3: n=3
-    r = ModVfinal / 2
-    figura = sm.geometry.Polygon(Vposm, r, n=n)
-    """# ---------
-    x = Vposm
-    y = np.array([-1, -1])
-    th = np.arccos( np.dot(x, y) / (np.linalg.norm(x)*np.linalg.norm(y)) )
-    log.info(f"polygon angule: {th}")
-    # -------
-    figura.spin(th)"""
+    vector = vectorP(*points)
+    d = math.sqrt(vector[0]*vector[0]+ vector[1]*vector[1])
+    log.info(f"vector: {vector}, dist: {d}")
+    if d == 0: d=1
+    vectorU = (vector[0] / d , vector[1] / d)
+    log.info(f"vector unitario: {vectorU}")
+    vectorM = (d / 2 * vectorU[0] , d / 2 * vectorU[1])
+    log.info(f"vector medio: {vectorM}")
+    vectorG = ( origen[0] + vectorM[0], origen[1]+vectorM[1])
     
-    puntos = []
-    
-    for punto in figura.vertices:
-        pp = np.array([punto.coordinates[0].evalf(),
-                       punto.coordinates[1].evalf()])
-        posix = pp
-        log.info(f"posix: {posix}")
-        puntos.extend([posix[0], posix[1]])
+    r = d/2
+    if n<3: n=3
+    m = 45*2*math.pi /360
+    # calculo del angulo    
+    Ux = np.array([0, 1])
+    Bx = np.array(vectorM)
+    dot = np.dot(Ux, Bx)
+    ang = math.acos(dot/d)
+    log.info(f"angulo: {ang}")
+    # definimos los puntos
+    angulos = np.arange(m-ang, 2*math.pi, 2*math.pi/n)
 
-    if len(puntos)>0:
-        puntos.extend([puntos[0], puntos[1]]) #cerramos el poligono
-    # log.info(f"Vertices: {figura.vertices}")
-    # log.info(f"segmento: {segmt}, rectasRectangulo: {ptm.coordinates}")
-    # log.info(f"Vorigen: {Vorigen}, Vptm: {Vptm}")
-    '''log.info(f"vorigen: {Vorigen}, vfinal: {Vfinal}, vpostr: {Vpostr}, NormalVpostr: {NormalVpostr}")
-    log.info(f"Vunit_Vpostr: {Vunit_Vpostr}")
-    log.info(f"posicion centro radio: {Vposm}")
-    log.info(f"Puntos: {puntos}")'''
-    return puntos
+    coordenadas = []
+    
+    for thao in angulos:
+        cc = polar_to_cartesian(r, thao)
+        
+        vvx, vvy = cc[0] + vectorG[0] , cc[1] + vectorG[1]
+        coordenadas.append(vvx)
+        coordenadas.append(vvy)
+        
+    coordenadas.extend([coordenadas[0], coordenadas[1]])
+    return coordenadas
 
 def rectasCircunferencia(*points):
     origen, final = points
