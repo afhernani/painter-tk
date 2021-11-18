@@ -78,6 +78,10 @@ class main:
             if self.lin_x and self.lin_y:
                 puntos = rectasRectangulo(*[(self.lin_x, self.lin_y), (e.x, e.y)], n=4)
                 self.c.coords(self.linea, *puntos)
+        elif self.modo.get() == 'O':
+            if self.lin_x and self.lin_y:
+                puntos = [self.lin_x, self.lin_y, e.x, e.y]
+                self.c.coords(self.linea, *puntos )
 
         self.old_x = e.x
         self.old_y = e.y
@@ -96,8 +100,10 @@ class main:
         elif self.modo.get() == 'R':
             puntos = rectasRectangulo(*[(self.lin_x, self.lin_y), (self.lin_x, self.lin_y)], n=4)
             self.linea = self.c.create_line(*puntos)
+        elif self.modo.get() == 'O':
+            self.linea = self.c.create_oval(self.lin_x, self.lin_y, e.x, e.y)
 
-    def __reset(self,e):    #reseting or cleaning the canvas 
+    def __reset(self, e):    #reseting or cleaning the canvas 
         """('<ButtonRelease-1>',self.__reset) mouse button soltar """
         self.old_x = None
         self.old_y = None
@@ -108,8 +114,7 @@ class main:
                             width=self.penwidth,fill=self.color_fg, 
                             capstyle=ROUND, smooth=False, tags='linea'
                             )
-            self.lin_x, self.lin_y = None, None
-            
+            # self.lin_x, self.lin_y = None, None
         elif self.modo.get() == 'P':
             pass
         elif self.modo.get() == 'C':
@@ -117,13 +122,20 @@ class main:
             self.c.delete(self.linea)
             self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
                                 capstyle=ROUND, smooth=False, tags='circle')
-            self.lin_x = self.lin_y = None
+            # self.lin_x = self.lin_y = None
         elif self.modo.get() == 'R':
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
             self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
                                 capstyle=ROUND, smooth=False, tags='rectangle')
-            self.lin_x = self.lin_y = None
+            # self.lin_x = self.lin_y = None
+        elif self.modo.get() == 'O':
+            puntos = self.c.coords(self.linea)
+            self.c.delete(self.linea)
+            self.c.create_oval(*puntos, width=self.penwidth, outline=self.color_fg,
+                                fill='', tags='oval' )
+
+        self.lin_x = self.lin_y = None
 
     def changeW(self,e): #change Width of pen through slider
         self.penwidth = e
@@ -153,6 +165,7 @@ class main:
         self.c.create_image( w, h, image=img)
         self.c.image = img'''
         loadSvg('canvas.svg', self.c)
+        self.statusbar['text'] = "canvas.svg loaded ..."
 
     def canvasconfig(self):
         log.info(f"Config canvas: {self.c}")
@@ -237,7 +250,8 @@ class main:
         MODES = [("Line", "L", self.photo._line),
                  ("Pen", "P", self.photo._pen),
                  ("Circle", "C", self.photo._circle),
-                 ("Rectangle", "R", self.photo._rectangle)]
+                 ("Rectangle", "R", self.photo._rectangle),
+                 ("Oval", "O", self.photo._oval)]
 
         self.modo = StringVar(self.drawcontrols, "L")  # initialize
         self.modo.trace('w', callback=self.changevariable)
