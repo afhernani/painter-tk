@@ -29,6 +29,7 @@ class Photos():
         self._line = tk.PhotoImage(file=resource_path('Images/line.png'))
         self._pen = tk.PhotoImage(file=resource_path('Images/pen.png'))
         self._circle = tk.PhotoImage(file=resource_path('Images/circle.png'))
+        self._arco = tk.PhotoImage(file=resource_path('Images/arco.png'))
         self._oval = tk.PhotoImage(file=resource_path('Images/oval.png'))
         self._square = tk.PhotoImage(file=resource_path('Images/square.png'))
         self._rectangle = tk.PhotoImage(file=resource_path('Images/rectangle.png'))
