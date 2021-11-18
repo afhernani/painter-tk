@@ -6,3 +6,4 @@ Entorno interfaz gráfica GUI TK, para uso de gráficos.
 - photos.py
 - utilitygraph.py
 - canvasvg.py ; free code use.
+- svgcanvas.py ; free

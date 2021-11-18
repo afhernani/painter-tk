@@ -80,7 +80,8 @@ def rectasRectangulo(*points, n=3):
     log.info(f"angulo: {ang}")
     # definimos los puntos
     angulos = np.arange(m-ang, 2*math.pi, 2*math.pi/n)
-
+    print(angulos)
+    angulos = angulos[:4]
     coordenadas = []
     
     for thao in angulos:
@@ -89,7 +90,7 @@ def rectasRectangulo(*points, n=3):
         vvx, vvy = cc[0] + vectorG[0] , cc[1] + vectorG[1]
         coordenadas.append(vvx)
         coordenadas.append(vvy)
-        
+    print(coordenadas, 'longitud=', len(coordenadas))
     coordenadas.extend([coordenadas[0], coordenadas[1]])
     return coordenadas
 

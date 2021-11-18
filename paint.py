@@ -6,6 +6,7 @@ import tksvg
 from enum import Enum
 from photos import Photos
 from utilitygraph import *
+from svgcanvas import loadSvg
 # pip install svglib
 # libreria svgpathtools
 # libreria pyinkscape -pypi
@@ -143,13 +144,15 @@ class main:
         saveall(filename='canvas.svg', canvas=self.c)
 
     def muestra(self):
-        items = self.c.find_all()
+        """load svg file, infileName, and canvas"""
+        '''items = self.c.find_all()
         log.info(f"items canvas: {items}")
         img = tksvg.SvgImage(file='canvas.svg')
         log.info(f"tksvg: {dir(tksvg)}")
         w, h = img.width() / 2 , img.height() / 2
         self.c.create_image( w, h, image=img)
-        self.c.image = img
+        self.c.image = img'''
+        loadSvg('canvas.svg', self.c)
 
     def canvasconfig(self):
         log.info(f"Config canvas: {self.c}")
