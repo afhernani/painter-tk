@@ -82,6 +82,10 @@ class main:
             if self.lin_x and self.lin_y:
                 puntos = [self.lin_x, self.lin_y, e.x, e.y]
                 self.c.coords(self.linea, *puntos )
+        elif self.modo.get() == 'A':
+            if self.lin_x and self.lin_y:
+                puntos = [self.lin_x, self.lin_y, e.x, e.y]
+                self.c.coords(self.linea, *puntos)
 
         self.old_x = e.x
         self.old_y = e.y
@@ -102,6 +106,8 @@ class main:
             self.linea = self.c.create_line(*puntos)
         elif self.modo.get() == 'O':
             self.linea = self.c.create_oval(self.lin_x, self.lin_y, e.x, e.y)
+        elif self.modo.get() == 'A':
+            self.linea = self.c.create_arc(self.lin_x, self.lin_y, e.x, e.y)
 
     def __reset(self, e):    #reseting or cleaning the canvas 
         """('<ButtonRelease-1>',self.__reset) mouse button soltar """
@@ -133,7 +139,12 @@ class main:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
             self.c.create_oval(*puntos, width=self.penwidth, outline=self.color_fg,
-                                fill='', tags='oval' )
+                                fill='', tags='oval')
+        elif self.modo.get() == 'A':
+            puntos = self.c.coords(self.linea)
+            self.c.delete(self.linea)
+            self.c.create_arc(*puntos, width=self.penwidth, outline=self.color_fg,
+                                fill='', tags='oval')                        
 
         self.lin_x = self.lin_y = None
 
@@ -251,7 +262,8 @@ class main:
                  ("Pen", "P", self.photo._pen),
                  ("Circle", "C", self.photo._circle),
                  ("Rectangle", "R", self.photo._rectangle),
-                 ("Oval", "O", self.photo._oval)]
+                 ("Oval", "O", self.photo._oval),
+                 ("Arco", "A", self.photo._arco)]
 
         self.modo = StringVar(self.drawcontrols, "L")  # initialize
         self.modo.trace('w', callback=self.changevariable)

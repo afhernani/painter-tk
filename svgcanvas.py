@@ -160,7 +160,36 @@ def addLineToCanvas(child_, object):
             object.create_line(lista_puntos, options_line)
             # object.create_line(attrs['x1'].value, attrs['y1'].value, attrs['x2'].value, attrs['y2'].value)
             print('create line')
-        
+
+def addPathToCanvas(child_, objects):
+    nodeName_ = child_.nodeName
+    if child_.hasAttributes():
+        attrs = child_.attributes
+        if attrs != None:
+            options = {}
+            for attr in list(attrs.keys()):
+                options[attr]=attrs[attr].value
+            print(options)
+
+def addEllipseToCanvas(child_, objects):
+    nodeName_ = child_.nodeName
+    if child_.hasAttributes():
+        attrs = child_.attributes
+        if attrs != None:
+            options = {}
+            for attr in list(attrs.keys()):
+                options[attr]=attrs[attr].value
+            print(options)
+            puntos = [ float(options['cx']), float(options['cy']),
+                       float(options['rx']), float(options['ry'])]
+            opt = {}
+            opt['outline'] = options['stroke']
+            # opt['fill'] = options['fill']
+            opt['width'] = float(options['stroke-width'])
+            opt['tags'] = 'arc'
+            print(opt)
+            objects.create_oval(*puntos, opt)
+            print('create arco')
 
 def build(node_, objects):
     attrs = node_.attributes
@@ -183,8 +212,10 @@ def build(node_, objects):
                     addLineToCanvas(child_, objects)
                 elif objectinstance == 'Polyline':
                     addPolylineToCanvas(child_, objects)
-                elif objectinstance == 'Circulo':
-                    pass
+                elif objectinstance == 'Ellipse':
+                    addEllipseToCanvas(child_, objects)
+                elif objectinstance == 'Path':
+                    addPathToCanvas(child_, objects)
                 # objectinstance=eval(capitalLetter+nodeName_[1:]) ()                
             except:
                 print('no class for: '+ nodeName_)
@@ -227,6 +258,6 @@ if __name__ == '__main__':
     canvas = tkinter.Canvas(root, background='yellow')
     canvas.pack()
 
-    loadSvg("./canvasSVG/canvas.svg", canvas )
+    loadSvg("canvas.svg", canvas )
 
     root.mainloop()
