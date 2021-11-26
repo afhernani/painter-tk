@@ -45,7 +45,7 @@ class main:
         # used to record where dragging from
         self.selectBox = None
         self.linea = None
-        self.originx,self.originy = 0, 0
+        self.originx, self.originy = 0, 0
         self.c.bind("<ButtonPress-3>", self.__SelectStart__)
         self.c.bind("<B3-Motion>", self.__SelectMotion__)
         self.c.bind("<ButtonRelease-3>", self.__SelectRelease__)
@@ -89,6 +89,7 @@ class main:
 
         self.old_x = e.x
         self.old_y = e.y
+        self.statusbar['text'] = f"{e.x} - {e.y}"
 
     def __selectstart(self, e):
         """Button-1 mouse press, start action draw"""
@@ -140,6 +141,7 @@ class main:
             self.c.delete(self.linea)
             self.c.create_oval(*puntos, width=self.penwidth, outline=self.color_fg,
                                 fill='', tags='oval')
+            self.statusbar.config(text=f"Puntos Ovalo = {puntos}")
         elif self.modo.get() == 'A':
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
@@ -165,6 +167,7 @@ class main:
     def save(self):
         log.info('save function')
         saveall(filename='canvas.svg', canvas=self.c)
+        self.statusbar.config(text="canvas.svg saved ...")
 
     def muestra(self):
         """load svg file, infileName, and canvas"""
