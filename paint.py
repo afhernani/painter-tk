@@ -7,9 +7,8 @@ from enum import Enum
 from photos import Photos
 from utilitygraph import *
 from svgcanvas import loadSvg
-# pip install svglib
-# libreria svgpathtools
-# libreria pyinkscape -pypi
+# Requisitos: pip install svglib, svgpathtools
+# Analisis: libreria pyinkscape -pypi
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -38,6 +37,7 @@ class main:
         self.old_y = None
         self.lin_x, self.lin_y = None, None
         self.penwidth = 5
+        self.dragging_handle = 0  # 0 = no arrastrado, 1 = arrastrado
         self.inicialize()
         self.c.bind('<ButtonPress-1>', self.__selectstart)
         self.c.bind('<B1-Motion>',self.__paint) #drwaing the line 
@@ -51,6 +51,11 @@ class main:
         self.c.bind("<ButtonRelease-3>", self.__SelectRelease__)
         self.c.bind("<Enter>", self.__entercanvas)
         self.c.bind("<Leave>", self.__leavecanvas)
+        self.c.bind('<B1-Motion>', self.__edit_mode_handler)
+        # Registro de todos los objetos dibujados
+        self.objetos = []          # Lista de IDs de canvas
+        self.objeto_seleccionado = None  # ID del objeto seleccionado
+        self.modo_edicion = False  # ¿Estamos en modo edición?
 
     def __entercanvas(self, *args):
         self.c.configure(cursor="tcross")
@@ -60,6 +65,15 @@ class main:
 
     def __paint(self, e):
         """Button-1 mouse Motion """
+        # Si hay un objeto seleccionado, MOVERLO
+        if self.modo.get() == 'S' and self.objeto_seleccionado:
+            dx = e.x - self.drag_start_x
+            dy = e.y - self.drag_start_y
+            self.c.move(self.objeto_seleccionado, dx, dy)
+            self.drag_start_x = e.x
+            self.drag_start_y = e.y
+            return  # No dibujar nada nuevo
+
         if self.modo.get() == 'P':
             if self.old_x and self.old_y:
                 self.c.create_line(self.old_x, self.old_y, e.x, e.y, 
@@ -68,8 +82,9 @@ class main:
                                    )
 
         elif self.modo.get() == 'L':
-            if self.lin_x and self.lin_y:
+            if self.linea:
                 self.c.coords(self.linea, self.lin_x, self.lin_y, e.x, e.y)
+
         elif self.modo.get() == 'C':
             if self.lin_x and self.lin_y:
                 puntos = rectasCircunferencia(*[(self.lin_x, self.lin_y), (e.x, e.y)])
@@ -117,11 +132,13 @@ class main:
         if self.modo.get() == 'L':
             x1, y1, x2, y2 = self.c.coords(self.linea)
             self.c.delete(self.linea)
-            self.c.create_line(x1, y1, x2, y2,
+            # guardar id devuelto por create_lien
+            n_id = self.c.create_line(x1, y1, x2, y2,
                             width=self.penwidth,fill=self.color_fg, 
                             capstyle=ROUND, smooth=False, tags='linea'
                             )
             # self.lin_x, self.lin_y = None, None
+            self.objetos.append(n_id) # hay que hacer todo esto a todos
         elif self.modo.get() == 'P':
             pass
         elif self.modo.get() == 'C':
@@ -197,6 +214,37 @@ class main:
         self.originx = self.c.canvasx(event.x)
         self.originy = self.c.canvasy(event.y)
         self.selectBox = self.c.create_rectangle(self.originx, self.originy, self.originx, self.originy)
+        # MODO SELECCIÓN: buscar si hay un objeto bajo el cursor
+        if self.modo.get() == 'S':
+            self.__seleccionar_objeto(event)
+            return  # No dibujar nada nuevo
+        
+        self.lin_x, self.lin_y = event.x, event.y
+    
+        if self.modo.get() == 'L':
+            self.linea = self.c.create_line(...)
+
+    def __seleccionar_objeto(self, e):
+        """Busca objetos que realmente toquen el punto del click"""
+        halo = 8  # Radio de tolerancia en píxeles
+        
+        # Busca todos los objetos en un pequeño cuadrado alrededor del click
+        encontrados = self.c.find_overlapping(
+            e.x - halo, e.y - halo,
+            e.x + halo, e.y + halo
+        )
+        
+        # Filtrar solo los que son nuestros objetos
+        candidatos = [item for item in encontrados if item in self.objetos]
+        
+        if candidatos:
+            # Seleccionar el primero (el de arriba en el z-order)
+            self.objeto_seleccionado = candidatos[-1]
+            self.c.itemconfig(self.objeto_seleccionado, fill='red')
+            self.drag_start_x = e.x
+            self.drag_start_y = e.y
+        else:
+            self.statusbar['text'] = "Ningún objeto bajo el cursor"
 
     # binding for drag select
     def __SelectMotion__(self, event):
@@ -267,7 +315,9 @@ class main:
                  ("Circle", "C", self.photo._circle),
                  ("Rectangle", "R", self.photo._rectangle),
                  ("Oval", "O", self.photo._oval),
-                 ("Arco", "A", self.photo._arco)]
+                 ("Arco", "A", self.photo._arco),
+                 ("Select", "S", self.photo._select)
+                 ]
 
         self.modo = StringVar(self.drawcontrols, "L")  # initialize
         self.modo.trace('w', callback=self.changevariable)
@@ -297,6 +347,74 @@ class main:
         optionmenu.add_command(label='Config', command=self.canvasconfig)
         optionmenu.add_separator()
         optionmenu.add_command(label='Exit',command=self.master.destroy)
+
+    def select_item(self, item_id):
+        """Selecciona una línea y muestra puntos de control"""
+        coords = self.c.coords(item_id)
+        x1, y1, x2, y2 = coords
+        
+        # Dibujar handles (círculos pequeños) en los extremos
+        self.handle1 = self.c.create_oval(x1-5, y1-5, x1+5, y1+5, 
+                                        fill='blue', tags='handle')
+        self.handle2 = self.c.create_oval(x2-5, y2-5, x2+5, y2+5, 
+                                        fill='blue', tags='handle')
+
+    def __edit_mode_handler(self, e):
+        """Maneja el arrastre según qué se está editando"""
+        if getattr(self, 'dragging_handle', 0) == 1:
+        # if self.dragging_handle == 1:
+            # Mover primer extremo
+            self.c.coords(self.linea, e.x, e.y, self.x2, self.y2)
+        if getattr(self, 'dragging_handle', 0) == 2:
+        # elif self.dragging_handle == 2:
+            # Mover segundo extremo
+            self.c.coords(self.linea, self.x1, self.y1, e.x, e.y)
+
+    # En paint.py, agregar estos métodos a la clase main:
+
+    def select_mode(self, e):
+        """Maneja el click en modo selección"""
+        if self.modo.get() != 'S':
+            return
+            
+        # Limpiar selección anterior
+        self.deselect_all()
+        
+        # Buscar objeto cercano al click
+        items = self.c.find_closest(e.x, e.y, halo=8)
+        
+        for item in items:
+            tags = self.c.gettags(item)
+            if 'linea' in tags or 'lapiz' in tags:
+                self.selected_item = item
+                self.show_handles(item)
+                break
+
+    def show_handles(self, item_id):
+        """Muestra puntos de control en la línea"""
+        coords = self.c.coords(item_id)
+        
+        if len(coords) >= 4:
+            x1, y1, x2, y2 = coords[:4]
+            
+            # Handle del inicio
+            self.handle_start = self.c.create_oval(
+                x1-6, y1-6, x1+6, y1+6,
+                fill='blue', outline='white', width=2,
+                tags=('handle', 'handle_start')
+            )
+            
+            # Handle del final
+            self.handle_end = self.c.create_oval(
+                x2-6, y2-6, x2+6, y2+6,
+                fill='blue', outline='white', width=2,
+                tags=('handle', 'handle_end')
+            )
+
+    def deselect_all(self):
+        """Elimina handles y deselecciona"""
+        self.c.delete('handle')
+        self.selected_item = None
 
 
 if __name__ == '__main__':

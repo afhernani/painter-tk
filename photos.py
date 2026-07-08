@@ -33,6 +33,7 @@ class Photos():
         self._oval = tk.PhotoImage(file=resource_path('Images/oval.png'))
         self._square = tk.PhotoImage(file=resource_path('Images/square.png'))
         self._rectangle = tk.PhotoImage(file=resource_path('Images/rectangle.png'))
+        self._select = tk.PhotoImage(file=resource_path('Images/select.png'))
         self._apply = tk.PhotoImage(file=resource_path('Images/pirate.png'))
         self._copy = tk.PhotoImage(file=resource_path('Images/copy.png'))
         self._delete = tk.PhotoImage(file=resource_path('Images/delete.png'))
