@@ -15,16 +15,6 @@ logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger('Paint')
 # log.setLevel(logging.DEBUG)
 
-'''class Modos(Enum):
-    LINE = 1
-    PEN = 2
-    SQUARE = 3
-    RECTANGLE = 4
-    OVALO = 5
-    CIRCLE = 6
-    DRAW = 7
-    MODIF = 8
-    FREE = 9 '''
 
 class main:
     def __init__(self,master):
@@ -37,86 +27,96 @@ class main:
         self.old_y = None
         self.lin_x, self.lin_y = None, None
         self.penwidth = 5
+
+        # Registro de todos los objetos dibujados
+        self.objetos = []          # Lista de IDs de canvas
+        self.objeto_seleccionado = None  # ID del objeto seleccionado
         self.dragging_handle = 0  # 0 = no arrastrado, 1 = arrastrado
+        self.modo_edicion = False  # ¿Estamos en modo edición?
+        self.dragging_line = False # ¿está arrastrando una linea?
+        self.drag_start_x, self.drag_start_y = 0, 0
+        self.handle_start, self.handle_end = None, None
+
         self.inicialize()
-        self.c.bind('<ButtonPress-1>', self.__selectstart)
-        self.c.bind('<B1-Motion>',self.__paint) #drwaing the line 
-        self.c.bind('<ButtonRelease-1>',self.__reset) # sali
+
+        self.c.bind('<ButtonPress-1>', self.__on_press)
+        self.c.bind('<B1-Motion>',self.__on_motion) #drwaing the line 
+        self.c.bind('<ButtonRelease-1>',self.__on_release) # sali
+        
+        self.c.bind("<ButtonPress-3>", self.__SelectStart__)
+        self.c.bind("<B3-Motion>", self.__SelectMotion__)
+        self.c.bind("<ButtonRelease-3>", self.__SelectRelease__)
+
+        self.c.bind("<Enter>", self.__entercanvas)
+        self.c.bind("<Leave>", self.__leavecanvas)
+        
         # used to record where dragging from
         self.selectBox = None
         self.linea = None
         self.originx, self.originy = 0, 0
-        self.c.bind("<ButtonPress-3>", self.__SelectStart__)
-        self.c.bind("<B3-Motion>", self.__SelectMotion__)
-        self.c.bind("<ButtonRelease-3>", self.__SelectRelease__)
-        self.c.bind("<Enter>", self.__entercanvas)
-        self.c.bind("<Leave>", self.__leavecanvas)
-        self.c.bind('<B1-Motion>', self.__edit_mode_handler)
-        # Registro de todos los objetos dibujados
-        self.objetos = []          # Lista de IDs de canvas
-        self.objeto_seleccionado = None  # ID del objeto seleccionado
-        self.modo_edicion = False  # ¿Estamos en modo edición?
+
 
     def __entercanvas(self, *args):
         self.c.configure(cursor="tcross")
 
+
     def __leavecanvas(self, *args):
         self.c.configure(cursor="")
 
-    def __paint(self, e):
-        """Button-1 mouse Motion """
-        # Si hay un objeto seleccionado, MOVERLO
-        if self.modo.get() == 'S' and self.objeto_seleccionado:
-            dx = e.x - self.drag_start_x
-            dy = e.y - self.drag_start_y
-            self.c.move(self.objeto_seleccionado, dx, dy)
-            self.drag_start_x = e.x
-            self.drag_start_y = e.y
-            return  # No dibujar nada nuevo
 
+    def __on_motion(self, e):
+        """B1-Motion: Actualiza según lo que se esté arrastrando"""
+        
+        self.statusbar['text'] = f"{e.x} - {e.y}"
+        
+        # === MODO SELECCIÓN ===
+        if self.modo.get() == 'S':
+            self.__motion_select_mode(e)
+            return
+        
+        # === MODO DIBUJO ===
         if self.modo.get() == 'P':
-            if self.old_x and self.old_y:
-                self.c.create_line(self.old_x, self.old_y, e.x, e.y, 
-                                   width=self.penwidth,fill=self.color_fg, 
-                                   capstyle=ROUND, smooth=False, tags='lapiz'
-                                   )
-
+            if self.old_x is not None and self.old_y is not None:
+                self.c.create_line(self.old_x, self.old_y, e.x, e.y,
+                                width=self.penwidth, fill=self.color_fg,
+                                capstyle=ROUND, smooth=False, tags='lapiz')
         elif self.modo.get() == 'L':
             if self.linea:
                 self.c.coords(self.linea, self.lin_x, self.lin_y, e.x, e.y)
-
         elif self.modo.get() == 'C':
-            if self.lin_x and self.lin_y:
+            if self.linea:
                 puntos = rectasCircunferencia(*[(self.lin_x, self.lin_y), (e.x, e.y)])
                 self.c.coords(self.linea, *puntos)
-        elif self.modo.get()== 'R':
-            if self.lin_x and self.lin_y:
+        elif self.modo.get() == 'R':
+            if self.linea:
                 puntos = rectasRectangulo(*[(self.lin_x, self.lin_y), (e.x, e.y)], n=4)
                 self.c.coords(self.linea, *puntos)
         elif self.modo.get() == 'O':
-            if self.lin_x and self.lin_y:
-                puntos = [self.lin_x, self.lin_y, e.x, e.y]
-                self.c.coords(self.linea, *puntos )
+            if self.linea:
+                self.c.coords(self.linea, self.lin_x, self.lin_y, e.x, e.y)
         elif self.modo.get() == 'A':
-            if self.lin_x and self.lin_y:
-                puntos = [self.lin_x, self.lin_y, e.x, e.y]
-                self.c.coords(self.linea, *puntos)
-
+            if self.linea:
+                self.c.coords(self.linea, self.lin_x, self.lin_y, e.x, e.y)
+        
         self.old_x = e.x
         self.old_y = e.y
-        self.statusbar['text'] = f"{e.x} - {e.y}"
 
-    def __selectstart(self, e):
-        """Button-1 mouse press, start action draw"""
+
+    def __on_press(self, e):
+        """ButtonPress-1: Decide qué hacer según el modo"""
+    
+        if self.modo.get() == 'S':
+            self.__press_select_mode(e)
+            return
+        
+        # MODO DIBUJO: comportamiento original
         self.lin_x, self.lin_y = e.x, e.y
+        
         if self.modo.get() == 'L':
-            self.linea = self.c.create_line(self.lin_x, self.lin_y, 
-                                            self.lin_x, self.lin_y
-                                            )
+            self.linea = self.c.create_line(self.lin_x, self.lin_y, self.lin_x, self.lin_y)
         elif self.modo.get() == 'C':
             puntos = rectasCircunferencia(*[(self.lin_x, self.lin_y), (self.lin_x, self.lin_y)])
             self.linea = self.c.create_line(*puntos)
-            log.info(f"linea: {self.linea}")
         elif self.modo.get() == 'R':
             puntos = rectasRectangulo(*[(self.lin_x, self.lin_y), (self.lin_x, self.lin_y)], n=4)
             self.linea = self.c.create_line(*puntos)
@@ -125,50 +125,63 @@ class main:
         elif self.modo.get() == 'A':
             self.linea = self.c.create_arc(self.lin_x, self.lin_y, e.x, e.y)
 
-    def __reset(self, e):    #reseting or cleaning the canvas 
-        """('<ButtonRelease-1>',self.__reset) mouse button soltar """
+
+    def __on_release(self, e):
+        """ButtonRelease-1: Finaliza la acción"""
+        
+        if self.modo.get() == 'S':
+            self.__release_select_mode(e)
+            return
+        
+        # === MODO DIBUJO: convertir temporal en objeto final ===
         self.old_x = None
         self.old_y = None
-        if self.modo.get() == 'L':
+        
+        if self.modo.get() == 'L' and self.linea:
             x1, y1, x2, y2 = self.c.coords(self.linea)
             self.c.delete(self.linea)
-            # guardar id devuelto por create_lien
             n_id = self.c.create_line(x1, y1, x2, y2,
-                            width=self.penwidth,fill=self.color_fg, 
-                            capstyle=ROUND, smooth=False, tags='linea'
-                            )
-            # self.lin_x, self.lin_y = None, None
-            self.objetos.append(n_id) # hay que hacer todo esto a todos
-        elif self.modo.get() == 'P':
-            pass
-        elif self.modo.get() == 'C':
+                                    width=self.penwidth, fill=self.color_fg,
+                                    capstyle=ROUND, smooth=False, tags='linea')
+            self.objetos.append(n_id)
+        
+        elif self.modo.get() == 'C' and self.linea:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
-            self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
-                                capstyle=ROUND, smooth=False, tags='circle')
-            # self.lin_x = self.lin_y = None
-        elif self.modo.get() == 'R':
+            n_id = self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
+                                    capstyle=ROUND, smooth=False, tags='circle')
+            self.objetos.append(n_id)
+        
+        elif self.modo.get() == 'R' and self.linea:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
-            self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
-                                capstyle=ROUND, smooth=False, tags='rectangle')
-            # self.lin_x = self.lin_y = None
-        elif self.modo.get() == 'O':
+            n_id = self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
+                                    capstyle=ROUND, smooth=False, tags='rectangle')
+            self.objetos.append(n_id)
+        
+        elif self.modo.get() == 'O' and self.linea:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
-            self.c.create_oval(*puntos, width=self.penwidth, outline=self.color_fg,
-                                fill='', tags='oval')
-            self.statusbar.config(text=f"Puntos Ovalo = {puntos}")
-        elif self.modo.get() == 'A':
+            n_id = self.c.create_oval(*puntos, width=self.penwidth, outline=self.color_fg,
+                                    fill='', tags='oval')
+            self.objetos.append(n_id)
+        
+        elif self.modo.get() == 'A' and self.linea:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
-            self.c.create_arc(*puntos, width=self.penwidth, outline=self.color_fg,
-                                fill='', tags='oval')                        
-
+            n_id = self.c.create_arc(*puntos, width=self.penwidth, outline=self.color_fg,
+                                    fill='', tags='arc')
+            self.objetos.append(n_id)
+        
+        self.linea = None
         self.lin_x = self.lin_y = None
 
+
     def changeW(self,e): #change Width of pen through slider
-        self.penwidth = e
+        try:
+            self.penwidth = int(float(e))
+        except (ValueError, TypeError):
+            self.penwidth = 5  # Valor por defecto
            
 
     def clear(self):
@@ -214,15 +227,16 @@ class main:
         self.originx = self.c.canvasx(event.x)
         self.originy = self.c.canvasy(event.y)
         self.selectBox = self.c.create_rectangle(self.originx, self.originy, self.originx, self.originy)
-        # MODO SELECCIÓN: buscar si hay un objeto bajo el cursor
-        if self.modo.get() == 'S':
-            self.__seleccionar_objeto(event)
-            return  # No dibujar nada nuevo
+        # # MODO SELECCIÓN: buscar si hay un objeto bajo el cursor
+        # if self.modo.get() == 'S':
+        #     self.__seleccionar_objeto(event)
+        #     return  # No dibujar nada nuevo
         
-        self.lin_x, self.lin_y = event.x, event.y
+        # self.lin_x, self.lin_y = event.x, event.y
     
-        if self.modo.get() == 'L':
-            self.linea = self.c.create_line(...)
+        # if self.modo.get() == 'L':
+        #     #self.linea = self.c.create_line(...)
+        #     log.info("__selectstart__: L")
 
     def __seleccionar_objeto(self, e):
         """Busca objetos que realmente toquen el punto del click"""
@@ -348,7 +362,7 @@ class main:
         optionmenu.add_separator()
         optionmenu.add_command(label='Exit',command=self.master.destroy)
 
-    def select_item(self, item_id):
+    def _select_item(self, item_id):
         """Selecciona una línea y muestra puntos de control"""
         coords = self.c.coords(item_id)
         x1, y1, x2, y2 = coords
@@ -359,20 +373,132 @@ class main:
         self.handle2 = self.c.create_oval(x2-5, y2-5, x2+5, y2+5, 
                                         fill='blue', tags='handle')
 
-    def __edit_mode_handler(self, e):
-        """Maneja el arrastre según qué se está editando"""
-        if getattr(self, 'dragging_handle', 0) == 1:
-        # if self.dragging_handle == 1:
-            # Mover primer extremo
-            self.c.coords(self.linea, e.x, e.y, self.x2, self.y2)
-        if getattr(self, 'dragging_handle', 0) == 2:
-        # elif self.dragging_handle == 2:
-            # Mover segundo extremo
-            self.c.coords(self.linea, self.x1, self.y1, e.x, e.y)
+    def __press_select_mode(self, e):
+        """Click en modo selección: ¿handle, línea o vacío?"""
+        
+        # 1. ¿Click sobre un handle?
+        handle_items = self.c.find_overlapping(e.x-6, e.y-6, e.x+6, e.y+6)
+        for item in handle_items:
+            tags = self.c.gettags(item)
+            if 'handle_start' in tags:
+                self.dragging_handle = 1
+                return
+            if 'handle_end' in tags:
+                self.dragging_handle = 2
+                return
+        
+        # 2. ¿Click sobre una línea existente?
+        halo = 8
+        encontrados = self.c.find_overlapping(e.x-halo, e.y-halo, e.x+halo, e.y+halo)
+        candidatos = [i for i in encontrados if i in self.objetos]
+        
+        if candidatos:
+            self.__seleccionar_objeto(candidatos[-1])  # El de arriba en z-order
+            self.dragging_line = True
+            self.drag_start_x = e.x
+            self.drag_start_y = e.y
+            return
+        
+        # 3. Click en vacío → deseleccionar
+        self.__deseleccionar_todo()
 
-    # En paint.py, agregar estos métodos a la clase main:
 
-    def select_mode(self, e):
+    def __motion_select_mode(self, e):
+        """Arrastre en modo selección: ¿handle o línea?"""
+        
+        if self.dragging_handle == 1:
+            # Mover el primer extremo de la línea
+            coords = self.c.coords(self.objeto_seleccionado)
+            if len(coords) >= 4:
+                self.c.coords(self.objeto_seleccionado, e.x, e.y, coords[2], coords[3])
+                self.__actualizar_handles()
+        
+        elif self.dragging_handle == 2:
+            # Mover el segundo extremo
+            coords = self.c.coords(self.objeto_seleccionado)
+            if len(coords) >= 4:
+                self.c.coords(self.objeto_seleccionado, coords[0], coords[1], e.x, e.y)
+                self.__actualizar_handles()
+        
+        elif self.dragging_line and self.objeto_seleccionado:
+            # Mover la línea completa
+            dx = e.x - self.drag_start_x
+            dy = e.y - self.drag_start_y
+            self.c.move(self.objeto_seleccionado, dx, dy)
+            self.c.move(self.handle_start, dx, dy)
+            self.c.move(self.handle_end, dx, dy)
+            self.drag_start_x = e.x
+            self.drag_start_y = e.y
+
+
+    def __release_select_mode(self, e):
+        """Soltar en modo selección: limpiar estado de arrastre"""
+        self.dragging_handle = 0
+        self.dragging_line = False
+
+
+    def __seleccionar_objeto(self, item_id):
+        """Selecciona un objeto y muestra sus handles"""
+        # Deseleccionar el anterior
+        if self.objeto_seleccionado is not None:
+            self.c.itemconfig(self.objeto_seleccionado, fill=self.color_fg, width=self.penwidth)
+        self.__deseleccionar_todo()
+        
+        self.objeto_seleccionado = item_id
+        # Resaltar visualmente
+        self.c.itemconfig(item_id, fill='red', width=self.penwidth + 1)
+        self.__mostrar_handles(item_id)
+        self.statusbar['text'] = f"Objeto {item_id} seleccionado"
+
+
+    def __mostrar_handles(self, item_id):
+        """Dibuja los círculos azules en los extremos de la línea"""
+        coords = self.c.coords(item_id)
+        if len(coords) < 4:
+            return
+        
+        x1, y1, x2, y2 = coords[0], coords[1], coords[2], coords[3]
+        
+        self.handle_start = self.c.create_oval(
+            x1-6, y1-6, x1+6, y1+6,
+            fill='blue', outline='white', width=2,
+            tags=('handle', 'handle_start')
+        )
+        self.handle_end = self.c.create_oval(
+            x2-6, y2-6, x2+6, y2+6,
+            fill='blue', outline='white', width=2,
+            tags=('handle', 'handle_end')
+        )
+
+
+    def __actualizar_handles(self):
+        """Mueve los handles a las nuevas coordenadas de la línea"""
+        if self.objeto_seleccionado is None:
+            return
+        coords = self.c.coords(self.objeto_seleccionado)
+        if len(coords) < 4:
+            return
+        
+        x1, y1, x2, y2 = coords[0], coords[1], coords[2], coords[3]
+        self.c.coords(self.handle_start, x1-6, y1-6, x1+6, y1+6)
+        self.c.coords(self.handle_end, x2-6, y2-6, x2+6, y2+6)
+
+
+    def __deseleccionar_todo(self):
+        """Elimina handles y deselecciona el objeto"""
+        if self.objeto_seleccionado is not None:
+            try:
+                self.c.itemconfig(self.objeto_seleccionado, fill=self.color_fg, width=self.penwidth)
+            except tk.TclError:
+                pass  # El objeto ya no existe
+        self.c.delete('handle')
+        self.objeto_seleccionado = None
+        self.handle_start = None
+        self.handle_end = None
+        self.dragging_handle = 0
+        self.dragging_line = False
+
+    def _select_mode(self, e):
         """Maneja el click en modo selección"""
         if self.modo.get() != 'S':
             return
@@ -390,7 +516,7 @@ class main:
                 self.show_handles(item)
                 break
 
-    def show_handles(self, item_id):
+    def _show_handles(self, item_id):
         """Muestra puntos de control en la línea"""
         coords = self.c.coords(item_id)
         
@@ -411,7 +537,7 @@ class main:
                 tags=('handle', 'handle_end')
             )
 
-    def deselect_all(self):
+    def _deselect_all(self):
         """Elimina handles y deselecciona"""
         self.c.delete('handle')
         self.selected_item = None
