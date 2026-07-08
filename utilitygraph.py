@@ -41,16 +41,16 @@ def razonMedia(*points, r=2):
 
 def cartesian_to_polar(x, y): 
    # rr = sym.sqrt(x**2 + y**2)
-   rr = np.math.sqrt(x**2 + y**2)
+   rr = math.sqrt(x**2 + y**2)
    #theta = sym.atan2(y, x)#import numpy as np
-   theta = np.math.atan2(y, x)
+   theta = math.atan2(y, x)
    return(rr, theta)
 
 def polar_to_cartesian(r, theta): # 'def' nos permite 'crear' nuestras propias funciones en Python.
    # xx = r * sym.cos(theta)
-   xx = r * np.math.cos(theta)
+   xx = r * math.cos(theta)
    ## yy = r * sym.sin(theta)
-   yy = r * np.math.sin(theta)
+   yy = r * math.sin(theta)
    return(xx, yy)
 
 def vectorP(*points):

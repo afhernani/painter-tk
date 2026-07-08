@@ -165,8 +165,9 @@ class main:
         self.c['bg'] = self.color_bg
 
     def save(self):
+        """Guarda docuemtno en formato svg"""
         log.info('save function')
-        saveall(filename='canvas.svg', canvas=self.c)
+        saveall(filename='downloads/canvas.svg', canvas=self.c)
         self.statusbar.config(text="canvas.svg saved ...")
 
     def muestra(self):

@@ -14,7 +14,7 @@ __author__  = "Wojciech Muła <wojciech_mula@poczta.onet.pl>"
 __all__ = ["convert", "SVGdocument", "saveall", "PYTHON", "MODULE", "NONE",
 	"warnings", "configure", "SEGMENT_TO_LINE", "SEGMENT_TO_PATH"
 ]
-
+import os, sys
 try:
 	# python3
 	import tkinter
@@ -388,7 +388,7 @@ def saveall(filename, canvas, items=None, margin=10, tounicode=None):
 	doc.documentElement.setAttribute('height', "%0.3f" % dy)
 	doc.documentElement.setAttribute(
 		'viewBox', "%0.3f %0.3f %0.3f %0.3f" % (x1, y1, dx, dy))
-
+	
 	file = open(filename, 'w')
 	file.write(doc.toxml())
 	file.close()
