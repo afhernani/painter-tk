@@ -12,8 +12,9 @@ from svgcanvas import loadSvg
 
 
 logging.basicConfig(level=logging.DEBUG)
+log.setLevel(logging.DEBUG)
 log = logging.getLogger('Paint')
-# log.setLevel(logging.DEBUG)
+
 
 
 class main:
@@ -21,21 +22,41 @@ class main:
         self.master = master
         self.modo = None
         self.photo = Photos()
+        #  Estado del dibujo
         self.color_fg = 'black'
         self.color_bg = 'white'
         self.old_x = None
         self.old_y = None
         self.lin_x, self.lin_y = None, None
         self.penwidth = 5
+        self.linea = None # Objeto temporal mientras se dibuja
 
         # Registro de todos los objetos dibujados
         self.objetos = []          # Lista de IDs de canvas
         self.objeto_seleccionado = None  # ID del objeto seleccionado
-        self.dragging_handle = 0  # 0 = no arrastrado, 1 = arrastrado
-        self.modo_edicion = False  # ¿Estamos en modo edición?
+        self.tipo_seleccionado = None  # tipo 'linea' 'oval' 'arc' 'polyline'
+        self.tag_trazo_seleccionado = None # para lapiz
+        self.trazos = {} # {tag_trazo:[lista de segmentos]}
+        self.contador_trazos = 0 # contador unico tags
+
+        # Handles (circuitos de control)
+        self.handle_start = None # Extemo inicial de línea
+        self.handle_end = None # Extremo final de línea
+        self.handle_nw = None # esquina noroeste del bbox
+        self.handle_ne = None # esquina noreste del bbox
+        self.handle_sw = None # esquina suroeste del bbox
+        self.handle_se = None # esquina sureste del bbox
+
+        # estado de arrastre
+        self.dragging_handle = None  # 'start', 'end', 'nw', 'ne', 'sw', 'se' o None
+        self.dragging_line = False # ¿arrastrando la figura completa?
         self.dragging_line = False # ¿está arrastrando una linea?
         self.drag_start_x, self.drag_start_y = 0, 0
-        self.handle_start, self.handle_end = None, None
+        # seleccion multiple con boton derecho 
+        self.selectBox = None
+        self.originx, self.originy = 0, 0
+        # self.handle_start, self.handle_end = None, None
+        # self.modo_edicion = False  # ¿Estamos en modo edición?
 
         self.inicialize()
 
@@ -51,9 +72,6 @@ class main:
         self.c.bind("<Leave>", self.__leavecanvas)
         
         # used to record where dragging from
-        self.selectBox = None
-        self.linea = None
-        self.originx, self.originy = 0, 0
 
 
     def __entercanvas(self, *args):
@@ -65,7 +83,7 @@ class main:
 
 
     def __on_motion(self, e):
-        """B1-Motion: Actualiza según lo que se esté arrastrando"""
+        """B1-Motion: Actualiza según lo que se esté arrastrando con click"""
         
         self.statusbar['text'] = f"{e.x} - {e.y}"
         
@@ -79,23 +97,24 @@ class main:
             if self.old_x is not None and self.old_y is not None:
                 self.c.create_line(self.old_x, self.old_y, e.x, e.y,
                                 width=self.penwidth, fill=self.color_fg,
-                                capstyle=ROUND, smooth=False, tags='lapiz')
+                                capstyle=ROUND, smooth=False, tags=('lapiz','trazo_actual')
+                )
         elif self.modo.get() == 'L':
-            if self.linea:
+            if self.linea is not None:
                 self.c.coords(self.linea, self.lin_x, self.lin_y, e.x, e.y)
         elif self.modo.get() == 'C':
-            if self.linea:
+            if self.linea is not None:
                 puntos = rectasCircunferencia(*[(self.lin_x, self.lin_y), (e.x, e.y)])
                 self.c.coords(self.linea, *puntos)
         elif self.modo.get() == 'R':
-            if self.linea:
+            if self.linea is not None:
                 puntos = rectasRectangulo(*[(self.lin_x, self.lin_y), (e.x, e.y)], n=4)
                 self.c.coords(self.linea, *puntos)
         elif self.modo.get() == 'O':
-            if self.linea:
+            if self.linea is not None:
                 self.c.coords(self.linea, self.lin_x, self.lin_y, e.x, e.y)
         elif self.modo.get() == 'A':
-            if self.linea:
+            if self.linea is not None:
                 self.c.coords(self.linea, self.lin_x, self.lin_y, e.x, e.y)
         
         self.old_x = e.x
@@ -114,9 +133,12 @@ class main:
         
         if self.modo.get() == 'L':
             self.linea = self.c.create_line(self.lin_x, self.lin_y, self.lin_x, self.lin_y)
+        elif self.modo.get() == 'P':
+            pass # el lápiz dibuja en motion
         elif self.modo.get() == 'C':
             puntos = rectasCircunferencia(*[(self.lin_x, self.lin_y), (self.lin_x, self.lin_y)])
             self.linea = self.c.create_line(*puntos)
+            log.info(f"linea: {self.linea}")
         elif self.modo.get() == 'R':
             puntos = rectasRectangulo(*[(self.lin_x, self.lin_y), (self.lin_x, self.lin_y)], n=4)
             self.linea = self.c.create_line(*puntos)
@@ -127,7 +149,7 @@ class main:
 
 
     def __on_release(self, e):
-        """ButtonRelease-1: Finaliza la acción"""
+        """ButtonRelease-1: Finaliza la acción registrando el objeto"""
         
         if self.modo.get() == 'S':
             self.__release_select_mode(e)
@@ -137,22 +159,34 @@ class main:
         self.old_x = None
         self.old_y = None
         
-        if self.modo.get() == 'L' and self.linea:
+        if self.modo.get() == 'L' and self.linea is not None:
             x1, y1, x2, y2 = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_line(x1, y1, x2, y2,
                                     width=self.penwidth, fill=self.color_fg,
                                     capstyle=ROUND, smooth=False, tags='linea')
             self.objetos.append(n_id)
-        
-        elif self.modo.get() == 'C' and self.linea:
+       
+        elif self.modo.get() == 'P':
+            # Agrupar todos los segmentos del trazo actual
+            segmentos = self.c.find_withtag('trazo_actual')
+            if segmentos:
+                tag_trazo = f'trazo_{self.contador_trazos}'
+                self.contador_trazos += 1
+                for seg in segmentos:
+                    self.c.addtag_withtag(tag_trazo, seg)
+                    self.c.dtag(seg, 'trazo_actual')
+                self.objetos.append(segmentos[0])  # Referencia al primer segmento
+                self.trazos[tag_trazo] = list(segmentos)
+
+        elif self.modo.get() == 'C' and self.linea is not None:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
                                     capstyle=ROUND, smooth=False, tags='circle')
             self.objetos.append(n_id)
         
-        elif self.modo.get() == 'R' and self.linea:
+        elif self.modo.get() == 'R' and self.linea is not None:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
@@ -173,8 +207,8 @@ class main:
                                     fill='', tags='arc')
             self.objetos.append(n_id)
         
-        self.linea = None
         self.lin_x = self.lin_y = None
+        self.linea = None
 
 
     def changeW(self,e): #change Width of pen through slider
@@ -186,6 +220,9 @@ class main:
 
     def clear(self):
         self.c.delete(ALL)
+        self.objetos.clear()
+        self.trazos.clear()
+        self.contador_trazos = 0
 
     def change_fg(self):  #changing the pen color
         self.color_fg=colorchooser.askcolor(color=self.color_fg)[1]
@@ -295,8 +332,10 @@ class main:
     def Callback(self, pointers):
         log.info(f"Callback: {pointers}")
 
+
     def changevariable(self, *args):
         log.info(f"variable: {self.modo.get()}")
+
 
     def inicialize(self):
         # barra de estado
@@ -362,6 +401,7 @@ class main:
         optionmenu.add_separator()
         optionmenu.add_command(label='Exit',command=self.master.destroy)
 
+
     def _select_item(self, item_id):
         """Selecciona una línea y muestra puntos de control"""
         coords = self.c.coords(item_id)
@@ -381,10 +421,22 @@ class main:
         for item in handle_items:
             tags = self.c.gettags(item)
             if 'handle_start' in tags:
-                self.dragging_handle = 1
+                self.dragging_handle = 'start'
                 return
             if 'handle_end' in tags:
-                self.dragging_handle = 2
+                self.dragging_handle = 'end'
+                return
+            if 'handle_nw' in tags:
+                self.dragging_handle = 'nw'
+                return
+            if 'handle_ne' in tags:
+                self.dragging_handle = 'ne'
+                return
+            if 'handle_sw' in tags:
+                self.dragging_handle = 'sw'
+                return
+            if 'handle_se' in tags:
+                self.dragging_handle = 'se'
                 return
         
         # 2. ¿Click sobre una línea existente?
@@ -406,34 +458,40 @@ class main:
     def __motion_select_mode(self, e):
         """Arrastre en modo selección: ¿handle o línea?"""
         
-        if self.dragging_handle == 1:
-            # Mover el primer extremo de la línea
-            coords = self.c.coords(self.objeto_seleccionado)
-            if len(coords) >= 4:
-                self.c.coords(self.objeto_seleccionado, e.x, e.y, coords[2], coords[3])
-                self.__actualizar_handles()
+        # === ARRASTRANDO UN HANDLE ===
+        if self.dragging_handle:
+            if self.dragging_handle in ('start', 'end'):
+                self.__mover_handle_linea(e)
+            elif self.dragging_handle in ('nw', 'ne', 'sw', 'se'):
+                self.__redimensionar_bbox(e)
+            return
         
-        elif self.dragging_handle == 2:
-            # Mover el segundo extremo
-            coords = self.c.coords(self.objeto_seleccionado)
-            if len(coords) >= 4:
-                self.c.coords(self.objeto_seleccionado, coords[0], coords[1], e.x, e.y)
-                self.__actualizar_handles()
-        
-        elif self.dragging_line and self.objeto_seleccionado:
-            # Mover la línea completa
+        # === ARRASTRANDO LA FIGURA COMPLETA ===
+        if self.dragging_line and self.objeto_seleccionado is not None:
             dx = e.x - self.drag_start_x
             dy = e.y - self.drag_start_y
-            self.c.move(self.objeto_seleccionado, dx, dy)
-            self.c.move(self.handle_start, dx, dy)
-            self.c.move(self.handle_end, dx, dy)
+            
+            # Mover figura principal (o todos los segmentos si es lápiz)
+            if self.tag_trazo_seleccionado:
+                for seg_id in self.trazos[self.tag_trazo_seleccionado]:
+                    self.c.move(seg_id, dx, dy)
+            else:
+                self.c.move(self.objeto_seleccionado, dx, dy)
+            
+            # Mover también todos los handles visibles
+            for h in [self.handle_start, self.handle_end,
+                      self.handle_nw, self.handle_ne,
+                      self.handle_sw, self.handle_se]:
+                if h is not None:
+                    self.c.move(h, dx, dy)
+            
             self.drag_start_x = e.x
             self.drag_start_y = e.y
 
 
     def __release_select_mode(self, e):
         """Soltar en modo selección: limpiar estado de arrastre"""
-        self.dragging_handle = 0
+        self.dragging_handle = None
         self.dragging_line = False
 
 
@@ -441,15 +499,203 @@ class main:
         """Selecciona un objeto y muestra sus handles"""
         # Deseleccionar el anterior
         if self.objeto_seleccionado is not None:
-            self.c.itemconfig(self.objeto_seleccionado, fill=self.color_fg, width=self.penwidth)
+            self.__restaurar_apariencia(self.objeto_seleccionado)
         self.__deseleccionar_todo()
         
         self.objeto_seleccionado = item_id
+        self.tipo_seleccionado = self.c.type(item_id)
+        
+        # Detectar si es un trazo de lápiz
+        self.tag_trazo_seleccionado = None
+        tags = self.c.gettags(item_id)
+        for tag in tags:
+            if tag.startswith('trazo_'):
+                self.tag_trazo_seleccionado = tag
+                break
+        
         # Resaltar visualmente
-        self.c.itemconfig(item_id, fill='red', width=self.penwidth + 1)
-        self.__mostrar_handles(item_id)
-        self.statusbar['text'] = f"Objeto {item_id} seleccionado"
+        if self.tag_trazo_seleccionado:
+            # Resaltar todos los segmentos del trazo
+            for seg_id in self.trazos.get(self.tag_trazo_seleccionado, []):
+                self.c.itemconfig(seg_id, fill='red')
+        else:
+            # Para líneas: usar fill. Para óvalos/arcos: usar outline
+            if self.tipo_seleccionado == 'line':
+                self.c.itemconfig(item_id, fill='red')
+            else:
+                self.c.itemconfig(item_id, outline='red')
+        
+        # Mostrar handles según el tipo
+        if self.tag_trazo_seleccionado:
+            # El lápiz no tiene handles, solo se mueve
+            pass
+        elif self.tipo_seleccionado == 'line' and 'linea' in tags:
+            # Línea simple: 2 handles en los extremos
+            self.__mostrar_handles_linea(item_id)
+        else:
+            # Círculo, rectángulo, óvalo, arco: 4 handles en bbox
+            self.__mostrar_handles_bbox(item_id)
+        
+        self.statusbar['text'] = f"Objeto {item_id} ({self.tipo_seleccionado}) seleccionado"
 
+
+    def __mostrar_handles_linea(self, item_id):
+        """Muestra 2 handles azules en los extremos de una línea"""
+        coords = self.c.coords(item_id)
+        if len(coords) < 4:
+            return
+        
+        x1, y1, x2, y2 = coords[0], coords[1], coords[2], coords[3]
+        
+        self.handle_start = self.c.create_oval(
+            x1-6, y1-6, x1+6, y1+6,
+            fill='blue', outline='white', width=2,
+            tags=('handle', 'handle_start')
+        )
+        self.handle_end = self.c.create_oval(
+            x2-6, y2-6, x2+6, y2+6,
+            fill='blue', outline='white', width=2,
+            tags=('handle', 'handle_end')
+        )
+
+
+    def __mostrar_handles_bbox(self, item_id):
+        """Muestra 4 handles verdes en las esquinas del bounding box"""
+        bbox = self.c.bbox(item_id)
+        if bbox is None:
+            return
+        
+        x1, y1, x2, y2 = bbox
+        
+        self.handle_nw = self.c.create_oval(
+            x1-6, y1-6, x1+6, y1+6,
+            fill='green', outline='white', width=2,
+            tags=('handle', 'handle_nw')
+        )
+        self.handle_ne = self.c.create_oval(
+            x2-6, y1-6, x2+6, y1+6,
+            fill='green', outline='white', width=2,
+            tags=('handle', 'handle_ne')
+        )
+        self.handle_sw = self.c.create_oval(
+            x1-6, y2-6, x1+6, y2+6,
+            fill='green', outline='white', width=2,
+            tags=('handle', 'handle_sw')
+        )
+        self.handle_se = self.c.create_oval(
+            x2-6, y2-6, x2+6, y2+6,
+            fill='green', outline='white', width=2,
+            tags=('handle', 'handle_se')
+        )
+
+    # Edicion: mover handles y redimensionar
+    def __mover_handle_linea(self, e):
+        """Mueve un extremo de una línea"""
+        coords = self.c.coords(self.objeto_seleccionado)
+        if len(coords) < 4:
+            return
+        
+        x1, y1, x2, y2 = coords[0], coords[1], coords[2], coords[3]
+        
+        if self.dragging_handle == 'start':
+            self.c.coords(self.objeto_seleccionado, e.x, e.y, x2, y2)
+            self.c.coords(self.handle_start, e.x-6, e.y-6, e.x+6, e.y+6)
+        elif self.dragging_handle == 'end':
+            self.c.coords(self.objeto_seleccionado, x1, y1, e.x, e.y)
+            self.c.coords(self.handle_end, e.x-6, e.y-6, e.x+6, e.y+6)
+
+    def __redimensionar_bbox(self, e):
+        """Redimensiona una figura según el handle arrastrado"""
+        bbox = self.c.bbox(self.objeto_seleccionado)
+        if bbox is None:
+            return
+        
+        x1, y1, x2, y2 = bbox
+        
+        # Calcular nuevas coordenadas según el handle
+        if self.dragging_handle == 'nw':
+            x1, y1 = e.x, e.y
+        elif self.dragging_handle == 'ne':
+            x2, y1 = e.x, e.y
+        elif self.dragging_handle == 'sw':
+            x1, y2 = e.x, e.y
+        elif self.dragging_handle == 'se':
+            x2, y2 = e.x, e.y
+        
+        # Asegurar que x1 < x2 y y1 < y2
+        if x1 > x2:
+            x1, x2 = x2, x1
+        if y1 > y2:
+            y1, y2 = y2, y1
+        
+        # Aplicar según el tipo de figura
+        tags = self.c.gettags(self.objeto_seleccionado)
+        
+        if 'circle' in tags:
+            # Recalcular puntos del círculo (usando función de utilitygraph)
+            puntos = rectasCircunferencia(*[(x1, y1), (x2, y2)])
+            self.c.coords(self.objeto_seleccionado, *puntos)
+        
+        elif 'rectangle' in tags:
+            # Recalcular puntos del rectángulo
+            puntos = rectasRectangulo(*[(x1, y1), (x2, y2)], n=4)
+            self.c.coords(self.objeto_seleccionado, *puntos)
+        
+        elif 'oval' in tags:
+            self.c.coords(self.objeto_seleccionado, x1, y1, x2, y2)
+        
+        elif 'arc' in tags:
+            self.c.coords(self.objeto_seleccionado, x1, y1, x2, y2)
+        
+        # Actualizar la posición visual de los 4 handles
+        if self.handle_nw:
+            self.c.coords(self.handle_nw, x1-6, y1-6, x1+6, y1+6)
+        if self.handle_ne:
+            self.c.coords(self.handle_ne, x2-6, y1-6, x2+6, y1+6)
+        if self.handle_sw:
+            self.c.coords(self.handle_sw, x1-6, y2-6, x1+6, y2+6)
+        if self.handle_se:
+            self.c.coords(self.handle_se, x2-6, y2-6, x2+6, y2+6)
+
+    # Deseleccion y restauracion.
+    def __restaurar_apariencia(self, item_id):
+        """Restaura el color original del objeto"""
+        try:
+            tags = self.c.gettags(item_id)
+            
+            if self.tag_trazo_seleccionado and self.tag_trazo_seleccionado in tags:
+                # Restaurar todos los segmentos del trazo
+                for seg_id in self.trazos.get(self.tag_trazo_seleccionado, []):
+                    self.c.itemconfig(seg_id, fill=self.color_fg)
+            elif self.tipo_seleccionado == 'line':
+                self.c.itemconfig(item_id, fill=self.color_fg)
+            else:
+                self.c.itemconfig(item_id, outline=self.color_fg)
+        except TclError:
+            pass  # El objeto ya no existe
+
+    def __deseleccionar_todo(self):
+        """Elimina todos los handles y resetea el estado"""
+        if self.objeto_seleccionado is not None:
+            self.__restaurar_apariencia(self.objeto_seleccionado)
+        
+        self.c.delete('handle')
+        
+        self.objeto_seleccionado = None
+        self.tipo_seleccionado = None
+        self.tag_trazo_seleccionado = None
+        
+        self.handle_start = None
+        self.handle_end = None
+        self.handle_nw = None
+        self.handle_ne = None
+        self.handle_sw = None
+        self.handle_se = None
+        
+        self.dragging_handle = None
+        self.dragging_line = False
+    
+    # Funciones
 
     def __mostrar_handles(self, item_id):
         """Dibuja los círculos azules en los extremos de la línea"""
@@ -471,17 +717,17 @@ class main:
         )
 
 
-    def __actualizar_handles(self):
-        """Mueve los handles a las nuevas coordenadas de la línea"""
-        if self.objeto_seleccionado is None:
-            return
-        coords = self.c.coords(self.objeto_seleccionado)
-        if len(coords) < 4:
-            return
+    # def __actualizar_handles(self):
+    #     """Mueve los handles a las nuevas coordenadas de la línea"""
+    #     if self.objeto_seleccionado is None:
+    #         return
+    #     coords = self.c.coords(self.objeto_seleccionado)
+    #     if len(coords) < 4:
+    #         return
         
-        x1, y1, x2, y2 = coords[0], coords[1], coords[2], coords[3]
-        self.c.coords(self.handle_start, x1-6, y1-6, x1+6, y1+6)
-        self.c.coords(self.handle_end, x2-6, y2-6, x2+6, y2+6)
+    #     x1, y1, x2, y2 = coords[0], coords[1], coords[2], coords[3]
+    #     self.c.coords(self.handle_start, x1-6, y1-6, x1+6, y1+6)
+    #     self.c.coords(self.handle_end, x2-6, y2-6, x2+6, y2+6)
 
 
     def __deseleccionar_todo(self):
@@ -497,6 +743,7 @@ class main:
         self.handle_end = None
         self.dragging_handle = 0
         self.dragging_line = False
+
 
     def _select_mode(self, e):
         """Maneja el click en modo selección"""
@@ -515,6 +762,7 @@ class main:
                 self.selected_item = item
                 self.show_handles(item)
                 break
+
 
     def _show_handles(self, item_id):
         """Muestra puntos de control en la línea"""
@@ -536,6 +784,7 @@ class main:
                 fill='blue', outline='white', width=2,
                 tags=('handle', 'handle_end')
             )
+
 
     def _deselect_all(self):
         """Elimina handles y deselecciona"""
