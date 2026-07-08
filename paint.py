@@ -52,6 +52,7 @@ class main:
         self.selectBox = None
         self.linea = None
         self.originx, self.originy = 0, 0
+        self._bbox_inicial = None
         
         self.inicialize()
         
@@ -226,15 +227,20 @@ class main:
                 return
             if 'handle_nw' in tags:
                 self.dragging_handle = 'nw'
+                # Guardar bbox inicial al empezar a arrastrar
+                self._bbox_inicial = self.c.bbox(self.objeto_seleccionado)
                 return
             if 'handle_ne' in tags:
                 self.dragging_handle = 'ne'
+                self._bbox_inicial = self.c.bbox(self.objeto_seleccionado)
                 return
             if 'handle_sw' in tags:
                 self.dragging_handle = 'sw'
+                self._bbox_inicial = self.c.bbox(self.objeto_seleccionado)
                 return
             if 'handle_se' in tags:
                 self.dragging_handle = 'se'
+                self._bbox_inicial = self.c.bbox(self.objeto_seleccionado)
                 return
         
         # 2. ¿Click sobre una figura existente?
@@ -243,7 +249,6 @@ class main:
         candidatos = [i for i in encontrados if i in self.objetos]
         
         if candidatos:
-            # Detectar si es un trazo de lápiz
             item_id = candidatos[-1]
             tags = self.c.gettags(item_id)
             tag_trazo = None
@@ -253,10 +258,8 @@ class main:
                     break
             
             if tag_trazo:
-                # Es un trazo de lápiz: seleccionar todos sus segmentos
                 self.__seleccionar_trazo_lapiz(tag_trazo)
             else:
-                # Es una figura normal
                 self.__seleccionar_objeto(item_id)
             
             self.dragging_line = True
@@ -297,6 +300,7 @@ class main:
     def __release_select_mode(self, e):
         self.dragging_handle = None
         self.dragging_line = False
+        self._bbox_inicial = None  #  Limpiar referencia
 
     # ================================================================
     # SELECCIÓN DE OBJETOS
@@ -405,26 +409,43 @@ class main:
             self.c.coords(self.handle_end, e.x-6, e.y-6, e.x+6, e.y+6)
 
     def __redimensionar_bbox(self, e):
-        bbox = self.c.bbox(self.objeto_seleccionado)
-        if bbox is None:
+        """Redimensiona una figura manteniendo FIJA la esquina opuesta""" 
+        # Usar el bbox inicial guardado, NO el actual (que Tkinter recalcula)
+        if not hasattr(self, '_bbox_inicial') or self._bbox_inicial is None:
             return
         
-        x1, y1, x2, y2 = bbox
+        x1, y1, x2, y2 = self._bbox_inicial  # Coordenadas FIJAS de referencia
+        
+        # Según el handle arrastrado, modificar solo UNA esquina
+        # La esquina opuesta queda FIJA (no se toca)
         
         if self.dragging_handle == 'nw':
+            # NW se mueve con el ratón, SE queda fija
             x1, y1 = e.x, e.y
-        elif self.dragging_handle == 'ne':
-            x2, y1 = e.x, e.y
-        elif self.dragging_handle == 'sw':
-            x1, y2 = e.x, e.y
-        elif self.dragging_handle == 'se':
-            x2, y2 = e.x, e.y
+            # x2, y2 permanecen como estaban (fijos)
         
+        elif self.dragging_handle == 'ne':
+            # NE se mueve con el ratón, SW queda fija
+            x2, y1 = e.x, e.y
+            # x1, y2 permanecen como estaban (fijos)
+        
+        elif self.dragging_handle == 'sw':
+            # SW se mueve con el ratón, NE queda fija
+            x1, y2 = e.x, e.y
+            # x2, y1 permanecen como estaban (fijos)
+        
+        elif self.dragging_handle == 'se':
+            # SE se mueve con el ratón, NW queda fija
+            x2, y2 = e.x, e.y
+            # x1, y1 permanecen como estaban (fijos)
+        
+        # Asegurar que x1 < x2 y y1 < y2 (para que el bbox sea válido)
         if x1 > x2:
             x1, x2 = x2, x1
         if y1 > y2:
             y1, y2 = y2, y1
         
+        # Aplicar según el tipo de figura
         tags = self.c.gettags(self.objeto_seleccionado)
         
         if 'circle' in tags:
@@ -438,6 +459,7 @@ class main:
         elif 'arc' in tags:
             self.c.coords(self.objeto_seleccionado, x1, y1, x2, y2)
         
+        # Actualizar la posición visual de los 4 handles
         if self.handle_nw:
             self.c.coords(self.handle_nw, x1-6, y1-6, x1+6, y1+6)
         if self.handle_ne:
