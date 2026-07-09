@@ -440,10 +440,10 @@ class main:
             # x1, y1 permanecen como estaban (fijos)
         
         # Asegurar que x1 < x2 y y1 < y2 (para que el bbox sea válido)
-        if x1 > x2:
-            x1, x2 = x2, x1
-        if y1 > y2:
-            y1, y2 = y2, y1
+        # if x1 > x2:
+        #     x1, x2 = x2, x1
+        # if y1 > y2:
+        #     y1, y2 = y2, y1
         
         # Aplicar según el tipo de figura
         tags = self.c.gettags(self.objeto_seleccionado)
@@ -458,16 +458,21 @@ class main:
             self.c.coords(self.objeto_seleccionado, x1, y1, x2, y2)
         elif 'arc' in tags:
             self.c.coords(self.objeto_seleccionado, x1, y1, x2, y2)
+        # Actualizar la posición visual de los 4 handles
         
+        # Usar min/max para que los handles siempre estén en las esquinas correctas
+        x_min, x_max = min(x1, x2), max(x1, x2)
+        y_min, y_max = min(y1, y2), max(y1, y2)
+
         # Actualizar la posición visual de los 4 handles
         if self.handle_nw:
-            self.c.coords(self.handle_nw, x1-6, y1-6, x1+6, y1+6)
+            self.c.coords(self.handle_nw, x_min-6, y_min-6, x_min+6, y_min+6)
         if self.handle_ne:
-            self.c.coords(self.handle_ne, x2-6, y1-6, x2+6, y1+6)
+            self.c.coords(self.handle_ne, x_max-6, y_min-6, x_max+6, y_min+6)
         if self.handle_sw:
-            self.c.coords(self.handle_sw, x1-6, y2-6, x1+6, y2+6)
+            self.c.coords(self.handle_sw, x_min-6, y_max-6, x_min+6, y_max+6)
         if self.handle_se:
-            self.c.coords(self.handle_se, x2-6, y2-6, x2+6, y2+6)
+            self.c.coords(self.handle_se, x_max-6, y_max-6, x_max+6, y_max+6)
 
     # ================================================================
     # DESELECCIÓN Y RESTAURACIÓN
@@ -535,7 +540,7 @@ class main:
         self.statusbar.config(text="canvas.svg saved ...")
 
     def muestra(self):
-        loadSvg('canvas.svg', self.c)
+        loadSvg('downloads/canvas.svg', self.c)
         self.statusbar['text'] = "canvas.svg loaded ..."
 
     def canvasconfig(self):
