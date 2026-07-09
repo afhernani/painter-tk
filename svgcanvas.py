@@ -9,6 +9,8 @@
 
 from __future__ import division
 
+from canvasvg import segment_to_line, segment_to_path
+
 __author__  = "hernani <afhernani@gmail.com>"
 
 __all__ = ["loadSvg"]
@@ -319,6 +321,6 @@ if __name__ == '__main__':
     canvas = tkinter.Canvas(root, background='yellow')
     canvas.pack()
 
-    loadSvg("canvas.svg", canvas )
+    loadSvg("downloads/canvas.svg", canvas )
 
     root.mainloop()
