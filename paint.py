@@ -167,12 +167,14 @@ class App:
     # HANDLER PRINCIPAL DE RELEASE
     # ================================================================
     def __on_release(self, e):
+        """'<ButtonRelease-1>', self.__on_release : mouse button soltar."""
+        self.old_x = None
+        self.old_y = None
+        
         if self.modo.get() == 'S':
             self.__release_select_mode(e)
             return
         
-        self.old_x = None
-        self.old_y = None
         
         if self.modo.get() == 'L' and self.linea is not None:
             x1, y1, x2, y2 = self.c.coords(self.linea)
@@ -612,16 +614,23 @@ class App:
         if filepath is None:
             filepath ='downloads/canvas.svg'
         if os.path.exists(filepath):
-            canvas, ids_creados = loadSvg(filepath, self.c)
-            # Añadir los ids a self.objetos
-            for item_id in ids_creados:
-                if item_id not in self.objetos:
-                    self.objetos.append(item_id)
-                    log.info(f'Objetos {item_id} registrado desde SVG')
+            try:
+                canvas, ids_creados = loadSvg(filepath, self.c)
+                # Añadir los ids a self.objetos
+                for item_id in ids_creados:
+                    if item_id not in self.objetos:
+                        self.objetos.append(item_id)
+                        log.info(f'Objetos {item_id} registrado desde SVG')
 
-            self.statusbar['text']=f'{filepath} loaded ...({len(ids_creados)} objetos)'
+                self.statusbar['text']=f'{filepath} loaded ...({len(ids_creados)} objetos)'
+                log.info(f"Total objetos en self.objeto: {len(self.objetos)}")
+            except Exception as e:
+                self.statusbar['text'] = f'file not found: {filepath}'
+                log.error(f"error cargando SVG: {e}")
+                import traceback
+                traceback.print_exc()
         else:
-            self.statusbar['text'] = f'file not found: {filepath}'
+            self.statusbar['text'] = f"File not found: {filepath}"
             log.warning(f"Archivo no encontrado: {filepath}")
 
     def canvasconfig(self):

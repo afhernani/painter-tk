@@ -283,6 +283,54 @@ def addEllipseToCanvas(child_, objects):
             log.info('create arco')
 
 
+def addRectToCanvas(child_, objects):
+    """
+    Convierte un elemento SVG <rect> a un rectángulo de Tkinter.
+    
+    SVG rect tiene: x, y, width, height
+    Tkinter necesita: [x1, y1, x2, y2] donde x2=x+width, y2=y+height
+    """
+    nodeName_ = child_.nodeName
+    
+    if child_.hasAttributes():
+        attrs = child_.attributes
+        
+        if attrs is not None:
+            options = {}
+            for attr in list(attrs.keys()):
+                options[attr] = attrs[attr].value
+            
+            log.info(f"options rect = {options}")
+            
+            # Extraer coordenadas del rectángulo
+            x = float(options.get('x', 0))
+            y = float(options.get('y', 0))
+            width = float(options.get('width', 0))
+            height = float(options.get('height', 0))
+            
+            # Calcular bounding box para Tkinter
+            rect_coords = [x, y, x + width, y + height]
+            
+            log.info(f"rect_coords = {rect_coords}")
+            
+            # Configurar opciones para Tkinter
+            opt = {}
+            opt['outline'] = options.get('stroke', 'black')
+            opt['fill'] = options.get('fill', '')
+            opt['width'] = float(options.get('stroke-width', 1))
+            opt['tags'] = 'rectangle'
+            
+            log.info(opt)
+            
+            # Crear rectángulo en el canvas
+            item_id = objects.create_rectangle(rect_coords, opt)
+            log.info(f'create rectangle, id={item_id}')
+            
+            return item_id
+    
+    return None
+
+
 def build(node_, objects, ids_creados=None):
     """Construye recursivamente el canvas procesando nodos XML.
     
@@ -327,9 +375,12 @@ def build(node_, objects, ids_creados=None):
 
                 elif objectinstance == 'Ellipse':
                     item_id = addEllipseToCanvas(child_, objects)
+                
+                elif objectinstance == 'Rect':  # Añadir este caso
+                    item_id = addRectToCanvas(child_, objects)
 
                 elif objectinstance == 'Path':
-                    item_id = addPathToCanvas(child_, objects)
+                    addPathToCanvas(child_, objects) # quitamos el item_id
                 # objectinstance=eval(capitalLetter+nodeName_[1:]) ()
                 if item_id is not None:
                      ids_creados.append(item_id)
