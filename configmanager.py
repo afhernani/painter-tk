@@ -111,7 +111,7 @@ class ConfigManager:
     def get_pen_defaults(self):
         """Obtiene los valores por defecto del pincel"""
         return {
-            'width': self.getint('Pen', 'default_width', 5),
+            'width': self.getfloat('Pen', 'default_width', 1),
             'color_fg': self.get('Pen', 'default_color_fg', 'black'),
             'color_bg': self.get('Pen', 'default_color_bg', 'white')
         }
