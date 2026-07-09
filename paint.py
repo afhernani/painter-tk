@@ -327,6 +327,7 @@ class App:
     # SELECCIÓN DE OBJETOS
     # ================================================================
     def __seleccionar_objeto(self, item_id):
+        """seleccionar un objeto y muestra sus handles según el tipo"""
         if self.objeto_seleccionado is not None:
             self.__restaurar_apariencia(self.objeto_seleccionado)
         self.__deseleccionar_todo()
@@ -334,20 +335,47 @@ class App:
         self.objeto_seleccionado = item_id
         self.tipo_seleccionado = self.c.type(item_id)
         self.tag_trazo_seleccionado = None
+
+        tags = self.c.gettags(item_id)
+        log.info(f'Tags del objeto {item_id}: {tags}')
+
+        # detectar si es un trazo de lápiz
+        for tag in tags:
+            if tag.startswith('trazo_'):
+                self.tag_trazo_seleccionado = tag
+                break
         
         # Resaltar visualmente
         color_original = self.colores_originales.get(item_id, self.color_fg)
-        if self.tipo_seleccionado == 'line':
-            self.c.itemconfig(item_id, fill='red')
+
+        if self.tag_trazo_seleccionado:
+            for seg_id in self.trazos.get(self.tag_trazo_seleccionado, []):
+                self.c.itemconfig(seg_id, fill='red')
         else:
-            self.c.itemconfig(item_id, outline='red')
+            # Manejar tanto tags de paint.py como svgcanvas.py
+            if self.tipo_seleccionado == 'line' or 'linea' in tags or 'line' in tags:
+                self.c.itemconfig(item_id, fill='red')
+            else:
+                self.c.itemconfig(item_id, outline='red')
+
+        # if self.tipo_seleccionado == 'line':
+        #     self.c.itemconfig(item_id, fill='red')
+        # else:
+        #     self.c.itemconfig(item_id, outline='red')
         
         # Mostrar handles según el tipo
-        tags = self.c.gettags(item_id)
-        if self.tipo_seleccionado == 'line' and 'linea' in tags:
-            self.__mostrar_handles_linea(item_id)
+        if self.tag_trazo_seleccionado:
+            pass # el lapiz no tiene handles, sólo se mueve
+        elif self.tipo_seleccionado == 'line' and ('linea' in tags or 'line' in tags):
+            self.__mostrar_handles_linea(item_id) # linea simple: 2 handles en los extemos
         else:
-            self.__mostrar_handles_bbox(item_id)
+            self.__mostrar_handles_bbox(item_id) #circulo, rectangulo, ovalo, arco: 4 hadles en bbox
+        
+        # tags = self.c.gettags(item_id)
+        # if self.tipo_seleccionado == 'line' and 'linea' in tags:
+        #     self.__mostrar_handles_linea(item_id)
+        # else:
+        #     self.__mostrar_handles_bbox(item_id)
         
         self.statusbar['text'] = f"Objeto {item_id} ({self.tipo_seleccionado}) seleccionado"
 
@@ -584,10 +612,17 @@ class App:
         if filepath is None:
             filepath ='downloads/canvas.svg'
         if os.path.exists(filepath):
-            loadSvg(filepath, self.c)
-            self.statusbar['text']=f'{filepath} loaded ...'
+            canvas, ids_creados = loadSvg(filepath, self.c)
+            # Añadir los ids a self.objetos
+            for item_id in ids_creados:
+                if item_id not in self.objetos:
+                    self.objetos.append(item_id)
+                    log.info(f'Objetos {item_id} registrado desde SVG')
+
+            self.statusbar['text']=f'{filepath} loaded ...({len(ids_creados)} objetos)'
         else:
             self.statusbar['text'] = f'file not found: {filepath}'
+            log.warning(f"Archivo no encontrado: {filepath}")
 
     def canvasconfig(self):
         log.info(f"Config canvas: {self.c}")
