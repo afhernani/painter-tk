@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# Tkinter canvas to SVG exporter
 from tkinter import *
 from tkinter import ttk, colorchooser
 from canvasvg import saveall, convert
@@ -8,12 +10,16 @@ from photos import Photos
 from utilitygraph import *
 from svgcanvas import loadSvg
 
+__author__  = "hernani <afhernani@gmail.com>"
+
+__all__ = ["App"]
+
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger('Paint')
 log.setLevel(logging.DEBUG)
 
 
-class main:
+class App:
     def __init__(self, master):
         self.master = master
         self.modo = None
@@ -655,6 +661,6 @@ class main:
 
 if __name__ == '__main__':
     root = Tk()
-    main(root)
+    App(root)
     root.title('Paint App')
     root.mainloop()

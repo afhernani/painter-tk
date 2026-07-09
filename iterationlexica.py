@@ -1,5 +1,11 @@
+# -*- coding: utf-8 -*-
+# Tkinter canvas to SVG exporter
 # Importamos el módulo de expresiones regulares para hacer coincidir patrones de texto
 import re
+
+__author__  = "hernani <afhernani@gmail.com>"
+
+__all__ = ["ConfigManager", "_scan_string", '_scan', 'lex']
 
 # ============================================================================
 # CLASE: PeekableStream

@@ -5,7 +5,6 @@
 #
 # author: Hernani
 # e-mail: afhernani@gmail.com
-# WWW   : http://
 
 from __future__ import division
 
@@ -15,14 +14,9 @@ __author__  = "hernani <afhernani@gmail.com>"
 
 __all__ = ["loadSvg"]
 
-try:
-	# python3
-	import tkinter
-	from tkinter.constants import *
-except ImportError:
-	# python2
-	import Tkinter as tkinter
-	from Tkconstants import *
+import tkinter
+from tkinter.constants import *
+
 
 from xml.dom import minidom
 from xml.dom import Node

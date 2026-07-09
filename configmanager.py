@@ -1,6 +1,13 @@
+# -*- coding: utf-8 -*-
+# Tkinter canvas to SVG exporter
+
 import configparser
 import os
 from pathlib import Path
+
+__author__  = "hernani <afhernani@gmail.com>"
+
+__all__ = ["ConfigManager"]
 
 class ConfigManager:
     """Gestiona la configuración de la aplicación usando configparser"""
