@@ -6,9 +6,11 @@ from canvasvg import saveall, convert
 import logging
 import tksvg
 from enum import Enum
+import os, sys
 from photos import Photos
 from utilitygraph import *
 from svgcanvas import loadSvg
+from configmanager import config
 
 __author__  = "hernani <afhernani@gmail.com>"
 
@@ -24,8 +26,15 @@ class App:
         self.master = master
         self.modo = None
         self.photo = Photos()
-        self.color_fg = 'black'
-        self.color_bg = 'white'
+        #  Cargar configuración
+        pen_defaults = config.get_pen_defaults()
+        canvas_width, canvas_height = config.get_canvas_size()
+        
+        # Usar valores de configuración o por defecto
+        self.color_fg = pen_defaults['color_fg']
+        self.color_bg = pen_defaults['color_bg']
+        self.penwidth = pen_defaults['width']
+
         self.old_x = None
         self.old_y = None
         self.lin_x, self.lin_y = None, None
@@ -60,7 +69,7 @@ class App:
         self.originx, self.originy = 0, 0
         self._bbox_inicial = None
         
-        self.inicialize()
+        self.inicialize(canvas_width, canvas_height)
         
         # Binds UNIFICADOS
         self.c.bind('<ButtonPress-1>', self.__on_press)
@@ -73,6 +82,12 @@ class App:
         
         self.c.bind('<Enter>', self.__entercanvas)
         self.c.bind('<Leave>', self.__leavecanvas)
+
+        # Cargar último archivo si existe
+        last_file = config.get_last_file()
+        if last_file and os.path.exists(last_file):
+            self.muestra(last_file)
+
 
     def __entercanvas(self, *args):
         self.c.configure(cursor="tcross")
@@ -524,9 +539,13 @@ class App:
     # FUNCIONES ORIGINALES
     # ================================================================
     def changeW(self, e):
+        """Cambiar el grosor del pincel"""
         self.penwidth = float(e)
+        config.set('Pen','default_width', str(self.penwidth))
+        config.save()
 
     def clear(self):
+        """limpia el canvas"""
         self.c.delete(ALL)
         self.objetos.clear()
         self.trazos.clear()
@@ -534,20 +553,41 @@ class App:
         self.contador_trazos = 0
 
     def change_fg(self):
-        self.color_fg = colorchooser.askcolor(color=self.color_fg)[1]
+        """cambiar el color del pincel"""
+        new_color = colorchooser.askcolor(color=self.color_fg)[1]
+        if new_color:
+            self.color_fg = new_color
+            config.set('Pen','default_color_fg', new_color)
 
     def change_bg(self):
-        self.color_bg = colorchooser.askcolor(color=self.color_bg)[1]
-        self.c['bg'] = self.color_bg
+        """cambiar el color de fondo"""
+        new_color = colorchooser.askcolor(color=self.color_bg)[1]
+        if new_color:
+            self.color_bg = new_color
+            self.c['bg'] = new_color
+            config.set('Pen','default_color_bg', new_color)
+            config.save()
 
-    def save(self):
+    def save(self, filepath=None):
+        """Guardar documento en formato svg"""
         log.info('save function')
+        if filepath is None:
+            filepath = 'downloads/canvas.svg'
+        
         saveall(filename='downloads/canvas.svg', canvas=self.c)
-        self.statusbar.config(text="canvas.svg saved ...")
+        self.statusbar.config(text=f"{filepath} saved ...")
+        # guardar configuracion
+        config.save_last_file(filepath)
 
-    def muestra(self):
-        loadSvg('downloads/canvas.svg', self.c)
-        self.statusbar['text'] = "canvas.svg loaded ..."
+    def muestra(self, filepath=None):
+        """Carga archivo svg"""
+        if filepath is None:
+            filepath ='downloads/canvas.svg'
+        if os.path.exists(filepath):
+            loadSvg(filepath, self.c)
+            self.statusbar['text']=f'{filepath} loaded ...'
+        else:
+            self.statusbar['text'] = f'file not found: {filepath}'
 
     def canvasconfig(self):
         log.info(f"Config canvas: {self.c}")
@@ -592,9 +632,14 @@ class App:
         log.info(f"Callback: {pointers}")
 
     def changevariable(self, *args):
+        """cuando cambia el modo de dibujo"""
+        mode = self.modo.get()
         log.info(f"variable: {self.modo.get()}")
+        config.set('General','default_mode', mode)
+        config.save()
 
-    def inicialize(self):
+    def inicialize(self, width=800, height=600):
+        """Inicializar la interfaz"""
         self.statusbar = ttk.Label(self.master, text="on the way ..",
                                    relief=SUNKEN, anchor=W)
         self.statusbar.pack(side=BOTTOM, fill=BOTH)
@@ -605,7 +650,7 @@ class App:
                                 command=self.changeW, orient=HORIZONTAL)
         self.slider.set(self.penwidth)
         self.slider.grid(row=0, column=1, ipadx=30)
-        
+        # controles de dibujo
         self.drawcontrols = Frame(self.controls, padx=5, pady=5)
         style = ttk.Style(self.drawcontrols)
         style.theme_use('default')
@@ -627,19 +672,31 @@ class App:
             ("Oval", "O", self.photo._oval),
             ("Arco", "A", self.photo._arco),
         ]
-        
+        # usar modo por defecto de configuracion.
+        default_mode = config.get('General', 'default_mode', 'L')
         self.modo = StringVar(self.drawcontrols, "L")
         self.modo.trace('w', callback=self.changevariable)
+
         for text, mode, img in MODES:
-            ttk.Radiobutton(self.drawcontrols, image=img, variable=self.modo,
-                            value=mode, width=15,
-                            style='IndicatorOff.TRadiobutton').pack(side=LEFT)
+            ttk.Radiobutton(self.drawcontrols, 
+                            image=img, 
+                            variable=self.modo,
+                            value=mode, 
+                            width=15,
+                            style='IndicatorOff.TRadiobutton'
+                            ).pack(side=LEFT)
+        
         self.drawcontrols.grid(row=0, column=2, ipadx=30)
         self.controls.pack(side=TOP)
         
-        self.c = Canvas(self.master, width=500, height=500, bg=self.color_bg)
+        # Canvas con tamaño de configuracion
+        self.c = Canvas(self.master, 
+                        width=width, 
+                        height=height, 
+                        bg=self.color_bg)
         self.c.pack(fill=BOTH, expand=True)
         
+        # Menu
         menu = Menu(self.master)
         self.master.config(menu=menu)
         
