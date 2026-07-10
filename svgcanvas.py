@@ -11,11 +11,17 @@ from canvasvg import segment_to_line, segment_to_path
 __author__ = "hernani <afhernani@gmail.com>"
 __all__ = ["loadSvg"]
 
+# Importar logging
+from logger import get_logger, log_exception
+log = get_logger('SVGCanvas')
+
 import tkinter
 from tkinter.constants import *
 from xml.dom import minidom
 from xml.dom import Node
 import string
+
+log.info("Modulo svgcanvas cargado")
 
 PYTHON = 100
 MODULE = 200
@@ -170,7 +176,7 @@ def addEllipseToCanvas(child_, objects):
             ovalo = [puntos[0] - puntos[2], puntos[1] - puntos[3],
                      puntos[0] + puntos[2], puntos[1] + puntos[3]]
             
-            log.info(f"Ovalo -- puntos: {ovalo}")
+            log.info(f"Coordenadas Ovalo -- puntos: {ovalo}")
             
             opt = {}
             opt['outline'] = options.get('stroke', 'black')
@@ -178,11 +184,11 @@ def addEllipseToCanvas(child_, objects):
             opt['width'] = float(options.get('stroke-width', 1))
             opt['tags'] = 'Ellipse'
             
-            log.info(opt)
             item_id = objects.create_oval(ovalo, opt)
             log.info(f'create ellipse, id={item_id}')
             return item_id
-    
+        
+    log.warning("No se pudo crear Ellipse")
     return None
 
 
@@ -294,6 +300,8 @@ def build(node_, objects, ids_creados=None):
     if ids_creados is None:
         ids_creados = []
     
+    log.debug("build: procesando nodo {node_.nodeName}")
+    
     attrs = node_.attributes
     
     if attrs is not None:
@@ -305,6 +313,7 @@ def build(node_, objects, ids_creados=None):
                 options[attr] = attrs[attr].value
         
         objects.config(options)
+        log.debug(f"Canvas configurado: {options}")
     
     for child_ in node_.childNodes:
         nodeName_ = child_.nodeName.split(':')[-1]
@@ -313,7 +322,8 @@ def build(node_, objects, ids_creados=None):
             try:
                 capitalLetter = nodeName_[0].upper()
                 objectinstance = capitalLetter + nodeName_[1:]
-                
+
+                log.debug(f"Procesando elemento: {objectinstance}")
                 item_id = None
                 
                 if objectinstance == 'Line':
@@ -325,16 +335,18 @@ def build(node_, objects, ids_creados=None):
                 elif objectinstance == 'Rect':
                     item_id = addRectToCanvas(child_, objects)
                 elif objectinstance == 'Path':
+                    log.warning(f"Path encontrado pero no implementado completamente")
                     item_id = addPathToCanvas(child_, objects)
+                else:
+                    log.warning(f"Elemento no soportado: {objectinstance}")
                 
-                # ✅ Capturar el ID si se creó un objeto
+                # Capturar el ID si se creó un objeto
                 if item_id is not None:
                     ids_creados.append(item_id)
+                    log.debug(f"id {item_id} añadido a lista.")
                 
             except Exception as e:
-                print(f'Error processing {nodeName_}: {e}')
-                import traceback
-                traceback.print_exc()
+                log_exception(log, e, f"Error procesando {nodeName_}")
                 continue
         
         elif child_.nodeType == Node.TEXT_NODE:

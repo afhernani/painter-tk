@@ -8,6 +8,8 @@ from tkinter import ttk, colorchooser
 from canvasvg import saveall, convert
 import logging
 import os, sys
+#  Importar sistema de logging
+from logger import get_logger, log_exception
 from photos import Photos
 from utilitygraph import *
 from svgcanvas import loadSvg
@@ -16,9 +18,10 @@ from configmanager import config
 __author__ = "hernani <afhernani@gmail.com>"
 __all__ = ["App"]
 
-logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger('Paint')
-log.setLevel(logging.DEBUG)
+log = get_logger('Paint')
+log.info("=" * 60)
+log.info("Paint App iniciado")
+log.info("=" * 60)
 
 
 class App:
@@ -175,7 +178,10 @@ class App:
             self.__release_select_mode(e)
             return
         
-        if self.modo.get() == 'L' and self.linea is not None:
+        modo_actual = self.modo.get()
+        log.debug(f"__on_release: modo = {modo_actual}")
+
+        if modo_actual == 'L' and self.linea is not None:
             x1, y1, x2, y2 = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_line(x1, y1, x2, y2,
@@ -184,7 +190,7 @@ class App:
             self.objetos.append(n_id)
             self.colores_originales[n_id] = self.color_fg
         
-        elif self.modo.get() == 'P':
+        elif modo_actual == 'P':
             # Agrupar todos los segmentos del trazo actual
             segmentos = self.c.find_withtag('trazo_actual')
             if segmentos:
@@ -200,7 +206,7 @@ class App:
                 self.trazos[tag_trazo] = lista_segmentos
                 log.info(f"Trazo {tag_trazo} creado con {len(lista_segmentos)} segmentos")
         
-        elif self.modo.get() == 'C' and self.linea is not None:
+        elif modo_actual == 'C' and self.linea is not None:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
@@ -208,7 +214,7 @@ class App:
             self.objetos.append(n_id)
             self.colores_originales[n_id] = self.color_fg
         
-        elif self.modo.get() == 'R' and self.linea is not None:
+        elif modo_actual == 'R' and self.linea is not None:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
@@ -216,7 +222,7 @@ class App:
             self.objetos.append(n_id)
             self.colores_originales[n_id] = self.color_fg
         
-        elif self.modo.get() == 'O' and self.linea is not None:
+        elif modo_actual == 'O' and self.linea is not None:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_oval(*puntos, width=self.penwidth, outline=self.color_fg,
@@ -224,7 +230,7 @@ class App:
             self.objetos.append(n_id)
             self.colores_originales[n_id] = self.color_fg
         
-        elif self.modo.get() == 'A' and self.linea is not None:
+        elif modo_actual == 'A' and self.linea is not None:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_arc(*puntos, width=self.penwidth, outline=self.color_fg,
@@ -592,15 +598,26 @@ class App:
         log.info('save function')
         if filepath is None:
             filepath = 'downloads/canvas.svg'
-        saveall(filename=filepath, canvas=self.c)
-        self.statusbar.config(text=f"{filepath} saved ...")
-        config.save_last_file(filepath)
+        
+        log.info(f"Guardando en: {filepath}")
+        log.info(f"Objetos a guardar: {len(self.objetos)}")
+
+        try:
+            saveall(filename=filepath, canvas=self.c)
+            self.statusbar.config(text=f"{filepath} saved ...")
+            config.save_last_file(filepath)
+            log.info(f"Archivo guardado correctamente")
+        except Exception as e:
+            log_exception(log, e, "Error al guardar")
+            self.statusbar.config(text=f"Error al guardar: {e}")
     
     def muestra(self, filepath=None):
         """Carga archivo svg"""
         if filepath is None:
             filepath = 'downloads/canvas.svg'
         
+        log.info(f"Cargando: {filepath}")
+
         if os.path.exists(filepath):
             self.c.delete(ALL)
             self.objetos.clear()
@@ -614,9 +631,13 @@ class App:
                 
                 # Registrar todos los items del canvas basándose en sus tags
                 todos_items = self.c.find_all()
+                log.info(f"   Total items en canvas después de cargar: {len(todos_items)}")
+
                 for item in todos_items:
                     tags = self.c.gettags(item)
                     item_type = self.c.type(item)
+
+                    log.debug(f"   Item {item}: type={item_type}, tags={tags}")
                     
                     # Registrar si tiene uno de nuestros tags
                     if ('Line' in tags or 'Ellipse' in tags or 
@@ -625,6 +646,8 @@ class App:
                         self.objetos.append(item)
                         self.colores_originales[item] = self.color_fg
                         log.info(f"Objeto {item} ({item_type}) registrado desde SVG, tags: {tags}")
+                    else:
+                        log.warning(f"Item {item} no registrado (tags: {tags})")
                 
                 self.statusbar['text'] = f'{filepath} loaded ({len(self.objetos)} objetos)'
                 log.info(f"Total objetos en self.objetos: {len(self.objetos)}")
@@ -713,7 +736,7 @@ class App:
         style.map('IndicatorOff.TRadiobutton',
                   background=[('selected', 'white'), ('active', '#ececec')])
         
-        # ✅ AÑADIDO: Modo Select (S)
+        # AÑADIDO: Modo Select (S)
         MODES = [
             ("Select", "S", self.photo._move),
             ("Line", "L", self.photo._line),
