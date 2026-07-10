@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
-# Tkinter canvas to SVG exporter
+"""
+Paint App - Aplicación de dibujo con Tkinter
+Tags usados: Line, Ellipse, Rect, Polyline, Arco
+"""
 from tkinter import *
 from tkinter import ttk, colorchooser
 from canvasvg import saveall, convert
 import logging
-import tksvg
-from enum import Enum
 import os, sys
 from photos import Photos
 from utilitygraph import *
 from svgcanvas import loadSvg
 from configmanager import config
 
-__author__  = "hernani <afhernani@gmail.com>"
-
+__author__ = "hernani <afhernani@gmail.com>"
 __all__ = ["App"]
 
 logging.basicConfig(level=logging.DEBUG)
@@ -26,25 +26,26 @@ class App:
         self.master = master
         self.modo = None
         self.photo = Photos()
-        #  Cargar configuración
+        
+        # Cargar configuración
         pen_defaults = config.get_pen_defaults()
         canvas_width, canvas_height = config.get_canvas_size()
         
-        # Usar valores de configuración o por defecto
+        # Valores de configuración
         self.color_fg = pen_defaults['color_fg']
         self.color_bg = pen_defaults['color_bg']
         self.penwidth = pen_defaults['width']
-
+        
+        # Variables de dibujo
         self.old_x = None
         self.old_y = None
         self.lin_x, self.lin_y = None, None
-        self.penwidth = 5
         
         # === Estado de selección y edición ===
         self.objetos = []                  # IDs de todos los objetos dibujados
         self.objeto_seleccionado = None    # ID del objeto seleccionado
-        self.tipo_seleccionado = None      # Tipo: 'line', 'oval', 'arc', etc.
-        self.tag_trazo_seleccionado = None # Para lápiz
+        self.tipo_seleccionado = None      # Tag: 'Line', 'Ellipse', 'Rect', 'Polyline', 'Arco'
+        self.tag_trazo_seleccionado = None # Para lápiz (Polyline)
         self.trazos = {}                   # {tag_trazo: [lista de segmentos]}
         self.contador_trazos = 0           # Contador único para tags
         self.colores_originales = {}       # {item_id: color_original}
@@ -82,19 +83,18 @@ class App:
         
         self.c.bind('<Enter>', self.__entercanvas)
         self.c.bind('<Leave>', self.__leavecanvas)
-
+        
         # Cargar último archivo si existe
         last_file = config.get_last_file()
         if last_file and os.path.exists(last_file):
             self.muestra(last_file)
-
-
+    
     def __entercanvas(self, *args):
         self.c.configure(cursor="tcross")
-
+    
     def __leavecanvas(self, *args):
         self.c.configure(cursor="")
-
+    
     # ================================================================
     # HANDLER PRINCIPAL DE PRESS
     # ================================================================
@@ -110,7 +110,7 @@ class App:
             self.linea = self.c.create_line(self.lin_x, self.lin_y,
                                             self.lin_x, self.lin_y)
         elif self.modo.get() == 'P':
-            pass
+            pass  # El lápiz dibuja en motion
         elif self.modo.get() == 'C':
             puntos = rectasCircunferencia(*[(self.lin_x, self.lin_y),
                                             (self.lin_x, self.lin_y)])
@@ -123,7 +123,7 @@ class App:
             self.linea = self.c.create_oval(self.lin_x, self.lin_y, e.x, e.y)
         elif self.modo.get() == 'A':
             self.linea = self.c.create_arc(self.lin_x, self.lin_y, e.x, e.y)
-
+    
     # ================================================================
     # HANDLER PRINCIPAL DE MOTION
     # ================================================================
@@ -140,7 +140,7 @@ class App:
                     self.old_x, self.old_y, e.x, e.y,
                     width=self.penwidth, fill=self.color_fg,
                     capstyle=ROUND, smooth=False,
-                    tags=('lapiz', 'trazo_actual')
+                    tags=('Polyline', 'trazo_actual')
                 )
         elif self.modo.get() == 'L':
             if self.linea is not None:
@@ -162,7 +162,7 @@ class App:
         
         self.old_x = e.x
         self.old_y = e.y
-
+    
     # ================================================================
     # HANDLER PRINCIPAL DE RELEASE
     # ================================================================
@@ -175,17 +175,17 @@ class App:
             self.__release_select_mode(e)
             return
         
-        
         if self.modo.get() == 'L' and self.linea is not None:
             x1, y1, x2, y2 = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_line(x1, y1, x2, y2,
                                       width=self.penwidth, fill=self.color_fg,
-                                      capstyle=ROUND, smooth=False, tags='linea')
+                                      capstyle=ROUND, smooth=False, tags='Line')
             self.objetos.append(n_id)
             self.colores_originales[n_id] = self.color_fg
         
         elif self.modo.get() == 'P':
+            # Agrupar todos los segmentos del trazo actual
             segmentos = self.c.find_withtag('trazo_actual')
             if segmentos:
                 tag_trazo = f'trazo_{self.contador_trazos}'
@@ -198,12 +198,13 @@ class App:
                     self.colores_originales[seg] = self.color_fg
                 self.objetos.extend(lista_segmentos)
                 self.trazos[tag_trazo] = lista_segmentos
+                log.info(f"Trazo {tag_trazo} creado con {len(lista_segmentos)} segmentos")
         
         elif self.modo.get() == 'C' and self.linea is not None:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
-                                      capstyle=ROUND, smooth=False, tags='circle')
+                                      capstyle=ROUND, smooth=False, tags='Ellipse')
             self.objetos.append(n_id)
             self.colores_originales[n_id] = self.color_fg
         
@@ -211,7 +212,7 @@ class App:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_line(*puntos, width=self.penwidth, fill=self.color_fg,
-                                      capstyle=ROUND, smooth=False, tags='rectangle')
+                                      capstyle=ROUND, smooth=False, tags='Rect')
             self.objetos.append(n_id)
             self.colores_originales[n_id] = self.color_fg
         
@@ -219,7 +220,7 @@ class App:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_oval(*puntos, width=self.penwidth, outline=self.color_fg,
-                                      fill='', tags='oval')
+                                      fill='', tags='Ellipse')
             self.objetos.append(n_id)
             self.colores_originales[n_id] = self.color_fg
         
@@ -227,13 +228,13 @@ class App:
             puntos = self.c.coords(self.linea)
             self.c.delete(self.linea)
             n_id = self.c.create_arc(*puntos, width=self.penwidth, outline=self.color_fg,
-                                     fill='', tags='arc')
+                                     fill='', tags='Arco')
             self.objetos.append(n_id)
             self.colores_originales[n_id] = self.color_fg
         
         self.lin_x = self.lin_y = None
         self.linea = None
-
+    
     # ================================================================
     # MODO SELECCIÓN
     # ================================================================
@@ -250,7 +251,6 @@ class App:
                 return
             if 'handle_nw' in tags:
                 self.dragging_handle = 'nw'
-                # Guardar bbox inicial al empezar a arrastrar
                 self._bbox_inicial = self.c.bbox(self.objeto_seleccionado)
                 return
             if 'handle_ne' in tags:
@@ -274,6 +274,8 @@ class App:
         if candidatos:
             item_id = candidatos[-1]
             tags = self.c.gettags(item_id)
+            
+            # Detectar si es un trazo de lápiz (Polyline)
             tag_trazo = None
             for tag in tags:
                 if tag.startswith('trazo_'):
@@ -292,7 +294,7 @@ class App:
         
         # 3. Click en vacío → deseleccionar
         self.__deseleccionar_todo()
-
+    
     def __motion_select_mode(self, e):
         if self.dragging_handle:
             if self.dragging_handle in ('start', 'end'):
@@ -319,68 +321,67 @@ class App:
             
             self.drag_start_x = e.x
             self.drag_start_y = e.y
-
+    
     def __release_select_mode(self, e):
         self.dragging_handle = None
         self.dragging_line = False
-        self._bbox_inicial = None  #  Limpiar referencia
-
+        self._bbox_inicial = None
+    
     # ================================================================
     # SELECCIÓN DE OBJETOS
     # ================================================================
     def __seleccionar_objeto(self, item_id):
-        """seleccionar un objeto y muestra sus handles según el tipo"""
+        """Seleccionar un objeto y muestra sus handles según el tipo"""
         if self.objeto_seleccionado is not None:
             self.__restaurar_apariencia(self.objeto_seleccionado)
         self.__deseleccionar_todo()
         
         self.objeto_seleccionado = item_id
-        self.tipo_seleccionado = self.c.type(item_id)
         self.tag_trazo_seleccionado = None
-
+        
+        # Obtener tags del objeto
         tags = self.c.gettags(item_id)
         log.info(f'Tags del objeto {item_id}: {tags}')
-
-        # detectar si es un trazo de lápiz
+        
+        # Detectar si es un trazo de lápiz
         for tag in tags:
             if tag.startswith('trazo_'):
                 self.tag_trazo_seleccionado = tag
                 break
         
-        # Resaltar visualmente
-        color_original = self.colores_originales.get(item_id, self.color_fg)
-
+        # Resaltar visualmente - USAR canvas.type() para determinar fill o outline
         if self.tag_trazo_seleccionado:
             for seg_id in self.trazos.get(self.tag_trazo_seleccionado, []):
                 self.c.itemconfig(seg_id, fill='red')
         else:
-            # Manejar tanto tags de paint.py como svgcanvas.py
-            if self.tipo_seleccionado == 'line' or 'linea' in tags or 'line' in tags:
+            # ✅ Usar canvas.type() en lugar de tags
+            item_type = self.c.type(item_id)
+            if item_type == 'line':
+                # Línea o polígono (Rect, Circle creado con create_line)
                 self.c.itemconfig(item_id, fill='red')
             else:
+                # Óvalo, arco (creados con create_oval, create_arc)
                 self.c.itemconfig(item_id, outline='red')
-
-        # if self.tipo_seleccionado == 'line':
-        #     self.c.itemconfig(item_id, fill='red')
-        # else:
-        #     self.c.itemconfig(item_id, outline='red')
         
-        # Mostrar handles según el tipo
+        # Mostrar handles según el tipo real
         if self.tag_trazo_seleccionado:
-            pass # el lapiz no tiene handles, sólo se mueve
-        elif self.tipo_seleccionado == 'line' and ('linea' in tags or 'line' in tags):
-            self.__mostrar_handles_linea(item_id) # linea simple: 2 handles en los extemos
+            pass  # El lápiz no tiene handles
         else:
-            self.__mostrar_handles_bbox(item_id) #circulo, rectangulo, ovalo, arco: 4 hadles en bbox
+            item_type = self.c.type(item_id)
+            if item_type == 'line':
+                # Para líneas simples (2 puntos): 2 handles
+                coords = self.c.coords(item_id)
+                if len(coords) == 4:
+                    self.__mostrar_handles_linea(item_id)
+                else:
+                    # Para polígonos (círculos, rectángulos): 4 handles bbox
+                    self.__mostrar_handles_bbox(item_id)
+            else:
+                # Óvalos, arcos: 4 handles bbox
+                self.__mostrar_handles_bbox(item_id)
         
-        # tags = self.c.gettags(item_id)
-        # if self.tipo_seleccionado == 'line' and 'linea' in tags:
-        #     self.__mostrar_handles_linea(item_id)
-        # else:
-        #     self.__mostrar_handles_bbox(item_id)
-        
-        self.statusbar['text'] = f"Objeto {item_id} ({self.tipo_seleccionado}) seleccionado"
-
+        self.statusbar['text'] = f"Objeto {item_id} ({self.c.type(item_id)}) seleccionado"
+    
     def __seleccionar_trazo_lapiz(self, tag_trazo):
         if self.objeto_seleccionado is not None:
             self.__restaurar_apariencia(self.objeto_seleccionado)
@@ -391,17 +392,20 @@ class App:
         
         if segmentos:
             self.objeto_seleccionado = segmentos[0]
+            self.tipo_seleccionado = 'Polyline'
             for seg_id in segmentos:
                 self.c.itemconfig(seg_id, fill='red')
         
         self.statusbar['text'] = f"Trazo {tag_trazo} seleccionado ({len(segmentos)} segmentos)"
-
+    
     def __mostrar_handles_linea(self, item_id):
         coords = self.c.coords(item_id)
         if len(coords) < 4:
             return
         
         x1, y1, x2, y2 = coords[0], coords[1], coords[2], coords[3]
+        
+        self.c.delete('handle')
         
         self.handle_start = self.c.create_oval(
             x1-6, y1-6, x1+6, y1+6,
@@ -413,13 +417,15 @@ class App:
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_end')
         )
-
+    
     def __mostrar_handles_bbox(self, item_id):
         bbox = self.c.bbox(item_id)
         if bbox is None:
             return
         
         x1, y1, x2, y2 = bbox
+        
+        self.c.delete('handle')
         
         self.handle_nw = self.c.create_oval(
             x1-6, y1-6, x1+6, y1+6,
@@ -441,7 +447,7 @@ class App:
             fill='green', outline='white', width=2,
             tags=('handle', 'handle_se')
         )
-
+    
     # ================================================================
     # EDICIÓN
     # ================================================================
@@ -458,64 +464,44 @@ class App:
         elif self.dragging_handle == 'end':
             self.c.coords(self.objeto_seleccionado, x1, y1, e.x, e.y)
             self.c.coords(self.handle_end, e.x-6, e.y-6, e.x+6, e.y+6)
-
+    
     def __redimensionar_bbox(self, e):
-        """Redimensiona una figura manteniendo FIJA la esquina opuesta""" 
-        # Usar el bbox inicial guardado, NO el actual (que Tkinter recalcula)
+        """Redimensiona una figura manteniendo FIJA la esquina opuesta"""
         if not hasattr(self, '_bbox_inicial') or self._bbox_inicial is None:
             return
         
-        x1, y1, x2, y2 = self._bbox_inicial  # Coordenadas FIJAS de referencia
-        
-        # Según el handle arrastrado, modificar solo UNA esquina
-        # La esquina opuesta queda FIJA (no se toca)
+        x1, y1, x2, y2 = self._bbox_inicial
         
         if self.dragging_handle == 'nw':
-            # NW se mueve con el ratón, SE queda fija
             x1, y1 = e.x, e.y
-            # x2, y2 permanecen como estaban (fijos)
-        
         elif self.dragging_handle == 'ne':
-            # NE se mueve con el ratón, SW queda fija
             x2, y1 = e.x, e.y
-            # x1, y2 permanecen como estaban (fijos)
-        
         elif self.dragging_handle == 'sw':
-            # SW se mueve con el ratón, NE queda fija
             x1, y2 = e.x, e.y
-            # x2, y1 permanecen como estaban (fijos)
-        
         elif self.dragging_handle == 'se':
-            # SE se mueve con el ratón, NW queda fija
             x2, y2 = e.x, e.y
-            # x1, y1 permanecen como estaban (fijos)
         
-        # Asegurar que x1 < x2 y y1 < y2 (para que el bbox sea válido)
-        # if x1 > x2:
-        #     x1, x2 = x2, x1
-        # if y1 > y2:
-        #     y1, y2 = y2, y1
+        # Usar canvas.type() en lugar de tags
+        item_type = self.c.type(self.objeto_seleccionado)
         
-        # Aplicar según el tipo de figura
-        tags = self.c.gettags(self.objeto_seleccionado)
-        
-        if 'circle' in tags:
-            puntos = rectasCircunferencia(*[(x1, y1), (x2, y2)])
-            self.c.coords(self.objeto_seleccionado, *puntos)
-        elif 'rectangle' in tags:
-            puntos = rectasRectangulo(*[(x1, y1), (x2, y2)], n=4)
-            self.c.coords(self.objeto_seleccionado, *puntos)
-        elif 'oval' in tags:
+        if item_type == 'line':
+            # Es un polígono (círculo o rectángulo creado con create_line)
+            tags = self.c.gettags(self.objeto_seleccionado)
+            if 'Ellipse' in tags:
+                puntos = rectasCircunferencia(*[(x1, y1), (x2, y2)])
+                self.c.coords(self.objeto_seleccionado, *puntos)
+            elif 'Rect' in tags:
+                puntos = rectasRectangulo(*[(x1, y1), (x2, y2)], n=4)
+                self.c.coords(self.objeto_seleccionado, *puntos)
+        elif item_type == 'oval':
             self.c.coords(self.objeto_seleccionado, x1, y1, x2, y2)
-        elif 'arc' in tags:
+        elif item_type == 'arc':
             self.c.coords(self.objeto_seleccionado, x1, y1, x2, y2)
-        # Actualizar la posición visual de los 4 handles
         
-        # Usar min/max para que los handles siempre estén en las esquinas correctas
+        # Actualizar handles
         x_min, x_max = min(x1, x2), max(x1, x2)
         y_min, y_max = min(y1, y2), max(y1, y2)
-
-        # Actualizar la posición visual de los 4 handles
+        
         if self.handle_nw:
             self.c.coords(self.handle_nw, x_min-6, y_min-6, x_min+6, y_min+6)
         if self.handle_ne:
@@ -524,27 +510,28 @@ class App:
             self.c.coords(self.handle_sw, x_min-6, y_max-6, x_min+6, y_max+6)
         if self.handle_se:
             self.c.coords(self.handle_se, x_max-6, y_max-6, x_max+6, y_max+6)
-
+    
     # ================================================================
     # DESELECCIÓN Y RESTAURACIÓN
     # ================================================================
     def __restaurar_apariencia(self, item_id):
+        """Restaurar la apariencia de los objetos"""
         try:
-            tags = self.c.gettags(item_id)
-            
             if self.tag_trazo_seleccionado:
                 for seg_id in self.trazos.get(self.tag_trazo_seleccionado, []):
                     color = self.colores_originales.get(seg_id, self.color_fg)
                     self.c.itemconfig(seg_id, fill=color)
-            elif self.tipo_seleccionado == 'line':
-                color = self.colores_originales.get(item_id, self.color_fg)
-                self.c.itemconfig(item_id, fill=color)
             else:
                 color = self.colores_originales.get(item_id, self.color_fg)
-                self.c.itemconfig(item_id, outline=color)
+                # Usar canvas.type() para determinar fill o outline
+                item_type = self.c.type(item_id)
+                if item_type == 'line':
+                    self.c.itemconfig(item_id, fill=color)
+                else:
+                    self.c.itemconfig(item_id, outline=color)
         except TclError:
             pass
-
+    
     def __deseleccionar_todo(self):
         if self.objeto_seleccionado is not None:
             self.__restaurar_apariencia(self.objeto_seleccionado)
@@ -564,88 +551,106 @@ class App:
         
         self.dragging_handle = None
         self.dragging_line = False
-
+    
     # ================================================================
     # FUNCIONES ORIGINALES
     # ================================================================
     def changeW(self, e):
         """Cambiar el grosor del pincel"""
         self.penwidth = float(e)
-        config.set('Pen','default_width', str(self.penwidth))
+        config.set('Pen', 'default_width', str(self.penwidth))
         config.save()
-
+    
     def clear(self):
-        """limpia el canvas"""
+        """Limpia el canvas"""
         self.c.delete(ALL)
         self.objetos.clear()
         self.trazos.clear()
         self.colores_originales.clear()
         self.contador_trazos = 0
-
+        log.info("Canvas limpiado")
+    
     def change_fg(self):
-        """cambiar el color del pincel"""
+        """Cambiar el color del pincel"""
         new_color = colorchooser.askcolor(color=self.color_fg)[1]
         if new_color:
             self.color_fg = new_color
-            config.set('Pen','default_color_fg', new_color)
-
+            config.set('Pen', 'default_color_fg', new_color)
+            config.save()
+    
     def change_bg(self):
-        """cambiar el color de fondo"""
+        """Cambiar el color de fondo"""
         new_color = colorchooser.askcolor(color=self.color_bg)[1]
         if new_color:
             self.color_bg = new_color
             self.c['bg'] = new_color
-            config.set('Pen','default_color_bg', new_color)
+            config.set('Pen', 'default_color_bg', new_color)
             config.save()
-
+    
     def save(self, filepath=None):
         """Guardar documento en formato svg"""
         log.info('save function')
         if filepath is None:
             filepath = 'downloads/canvas.svg'
-        
-        saveall(filename='downloads/canvas.svg', canvas=self.c)
+        saveall(filename=filepath, canvas=self.c)
         self.statusbar.config(text=f"{filepath} saved ...")
-        # guardar configuracion
         config.save_last_file(filepath)
-
+    
     def muestra(self, filepath=None):
         """Carga archivo svg"""
         if filepath is None:
-            filepath ='downloads/canvas.svg'
+            filepath = 'downloads/canvas.svg'
+        
         if os.path.exists(filepath):
+            self.c.delete(ALL)
+            self.objetos.clear()
+            self.trazos.clear()
+            self.colores_originales.clear()
+            self.contador_trazos = 0
+            
             try:
-                canvas, ids_creados = loadSvg(filepath, self.c)
-                # Añadir los ids a self.objetos
-                for item_id in ids_creados:
-                    if item_id not in self.objetos:
-                        self.objetos.append(item_id)
-                        log.info(f'Objetos {item_id} registrado desde SVG')
-
-                self.statusbar['text']=f'{filepath} loaded ...({len(ids_creados)} objetos)'
-                log.info(f"Total objetos en self.objeto: {len(self.objetos)}")
+                # loadSvg no devuelve tupla, solo canvas
+                loadSvg(filepath, self.c)
+                
+                # Registrar todos los items del canvas basándose en sus tags
+                todos_items = self.c.find_all()
+                for item in todos_items:
+                    tags = self.c.gettags(item)
+                    item_type = self.c.type(item)
+                    
+                    # Registrar si tiene uno de nuestros tags
+                    if ('Line' in tags or 'Ellipse' in tags or 
+                        'Rect' in tags or 'Arco' in tags or 
+                        'Polyline' in tags):
+                        self.objetos.append(item)
+                        self.colores_originales[item] = self.color_fg
+                        log.info(f"Objeto {item} ({item_type}) registrado desde SVG, tags: {tags}")
+                
+                self.statusbar['text'] = f'{filepath} loaded ({len(self.objetos)} objetos)'
+                log.info(f"Total objetos en self.objetos: {len(self.objetos)}")
+                
             except Exception as e:
-                self.statusbar['text'] = f'file not found: {filepath}'
-                log.error(f"error cargando SVG: {e}")
+                self.statusbar['text'] = f'Error loading: {filepath}'
+                log.error(f"Error cargando SVG: {e}")
                 import traceback
                 traceback.print_exc()
         else:
             self.statusbar['text'] = f"File not found: {filepath}"
             log.warning(f"Archivo no encontrado: {filepath}")
-
+    
     def canvasconfig(self):
         log.info(f"Config canvas: {self.c}")
         options = self.c.config()
-        log.info(f"stado: {self.c['state']}")
+        log.info(f"Estado: {self.c['state']}")
         self.c.configure(state='disabled')
-
+    
     def __SelectStart__(self, event):
         self.originx = self.c.canvasx(event.x)
         self.originy = self.c.canvasy(event.y)
         self.selectBox = self.c.create_rectangle(
             self.originx, self.originy, self.originx, self.originy
         )
-
+    
     def __SelectMotion__(self, event):
         xnew = self.c.canvasx(event.x)
         ynew = self.c.canvasy(event.y)
@@ -657,7 +662,7 @@ class App:
             self.c.coords(self.selectBox, self.originx, ynew, xnew, self.originy)
         else:
             self.c.coords(self.selectBox, self.originx, self.originy, xnew, ynew)
-
+    
     def __SelectRelease__(self, event):
         x1, y1, x2, y2 = self.c.coords(self.selectBox)
         self.c.delete(self.selectBox)
@@ -671,17 +676,17 @@ class App:
             self.c.itemconfig(i, {'state': DISABLED})
             selectedPointers.append(i)
         self.Callback(selectedPointers)
-
+    
     def Callback(self, pointers):
         log.info(f"Callback: {pointers}")
-
+    
     def changevariable(self, *args):
-        """cuando cambia el modo de dibujo"""
+        """Cuando cambia el modo de dibujo"""
         mode = self.modo.get()
-        log.info(f"variable: {self.modo.get()}")
-        config.set('General','default_mode', mode)
+        log.info(f"variable: {mode}")
+        config.set('General', 'default_mode', mode)
         config.save()
-
+    
     def inicialize(self, width=800, height=600):
         """Inicializar la interfaz"""
         self.statusbar = ttk.Label(self.master, text="on the way ..",
@@ -694,7 +699,8 @@ class App:
                                 command=self.changeW, orient=HORIZONTAL)
         self.slider.set(self.penwidth)
         self.slider.grid(row=0, column=1, ipadx=30)
-        # controles de dibujo
+        
+        # Controles de dibujo
         self.drawcontrols = Frame(self.controls, padx=5, pady=5)
         style = ttk.Style(self.drawcontrols)
         style.theme_use('default')
@@ -707,6 +713,7 @@ class App:
         style.map('IndicatorOff.TRadiobutton',
                   background=[('selected', 'white'), ('active', '#ececec')])
         
+        # ✅ AÑADIDO: Modo Select (S)
         MODES = [
             ("Select", "S", self.photo._move),
             ("Line", "L", self.photo._line),
@@ -716,11 +723,12 @@ class App:
             ("Oval", "O", self.photo._oval),
             ("Arco", "A", self.photo._arco),
         ]
-        # usar modo por defecto de configuracion.
+        
+        # Usar modo por defecto de configuración
         default_mode = config.get('General', 'default_mode', 'L')
-        self.modo = StringVar(self.drawcontrols, "L")
+        self.modo = StringVar(self.drawcontrols, default_mode)
         self.modo.trace('w', callback=self.changevariable)
-
+        
         for text, mode, img in MODES:
             ttk.Radiobutton(self.drawcontrols, 
                             image=img, 
@@ -733,14 +741,14 @@ class App:
         self.drawcontrols.grid(row=0, column=2, ipadx=30)
         self.controls.pack(side=TOP)
         
-        # Canvas con tamaño de configuracion
+        # Canvas con tamaño de configuración
         self.c = Canvas(self.master, 
                         width=width, 
                         height=height, 
                         bg=self.color_bg)
         self.c.pack(fill=BOTH, expand=True)
         
-        # Menu
+        # Menú
         menu = Menu(self.master)
         self.master.config(menu=menu)
         

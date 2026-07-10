@@ -131,50 +131,36 @@ def addPolylineToCanvas(child_, objects):
             return item_id
     return None
 
-def addLineToCanvas(child_, objects):
-    """Convertir un elemento SVG <line> a una linea de tkinter"""
+def addPolylineToCanvas(child_, objects):
+    """Convierte un elemento SVG <polyline> a una línea de Tkinter"""
     nodeName_ = child_.nodeName
-
+    
     if child_.hasAttributes():
         attrs = child_.attributes
-        puntos_x = []
-        puntos_y = []
-        if attrs != None:
-            # print(attrs.values())
-            # options = dict((v0, v4) for v0, v1, v2, v3, v4 in attrs.values())
-            # print(options)
+        
+        if attrs is not None:
             options = {}
             for attr in list(attrs.keys()):
-                # print(attr)
-                if 'x' in attr :
-                    puntos_x.append(attrs[attr].value)
-                elif 'y' in attr:
-                    puntos_y.append(attrs[attr].value)
-                else:
-                    options[attr]=attrs[attr].value
+                options[attr] = attrs[attr].value
             
-            # print('options =', options)
+            log.info(f"options = {options}")
+            
             options_line = {}
-            options_line['fill'] = options['stroke']
-            options_line['width'] = options['stroke-width']
-            options_line['capstyle'] = ROUND # BUTT # options['stroke-linecap']
-            options_line['smooth'] = True
-            options_line['tags'] = 'line'
-            # print('options_line =' , options_line)
+            options_line['fill'] = options.get('stroke', 'black')
+            options_line['width'] = float(options.get('stroke-width', 1))
+            options_line['capstyle'] = ROUND
+            options_line['smooth'] = False
+            options_line['tags'] = 'Polyline'  # ✅ Cambiado a 'Polyline'
             
-            lista_puntos = [puntos_x[0], puntos_y[0], puntos_x[1], puntos_y[1]]
-            '''for itemx in puntos_x:
-                for itemy in puntos_y:
-                    lista_puntos.extend([itemx, itemy])'''
+            coordenadas = options['points'].split(' ')
+            datos = []
+            for coordenada in coordenadas:
+                cx, cy = coordenada.split(',')
+                datos.extend([float(cx), float(cy)])
             
-            log.info(f"lista_puntos = {lista_puntos}")
-
-            item_id=objects.create_line(lista_puntos, options_line)
-            # object.create_line(attrs['x1'].value, attrs['y1'].value, attrs['x2'].value, attrs['y2'].value)
-            log.info(f'create line, id={item_id}')
-            return item_id
-        
-    return None
+            log.info(f"datos = {datos}")
+            objects.create_line(datos, options_line)
+            log.info('create polyline')
 
 
 def addPathToCanvas(child_, objects):
@@ -258,29 +244,35 @@ def addPathConstructor(options, objects):
 
 
 def addEllipseToCanvas(child_, objects):
+    """Convierte un elemento SVG <ellipse> a un óvalo de Tkinter"""
     nodeName_ = child_.nodeName
+    
     if child_.hasAttributes():
         attrs = child_.attributes
-        if attrs != None:
+        
+        if attrs is not None:
             options = {}
             for attr in list(attrs.keys()):
-                options[attr]=attrs[attr].value
+                options[attr] = attrs[attr].value
+            
             log.info(f"options = {options}")
-            puntos = [ float(options['cx']), float(options['cy']),
-                       float(options['rx']), float(options['ry'])]
-            ovalo = [ puntos[0]-puntos[2], puntos[1]-puntos[3],
-                      puntos[0]+puntos[2], puntos[1]+puntos[3]
-                      ]
+            
+            puntos = [float(options['cx']), float(options['cy']),
+                      float(options['rx']), float(options['ry'])]
+            ovalo = [puntos[0]-puntos[2], puntos[1]-puntos[3],
+                     puntos[0]+puntos[2], puntos[1]+puntos[3]]
+            
             log.info(f"Ovalo -- puntos: {ovalo}")
+            
             opt = {}
-            opt['outline'] = options['stroke']
-            # opt['dash'] = (4, 1)
+            opt['outline'] = options.get('stroke', 'black')
             opt['fill'] = ''
-            opt['width'] = float(options['stroke-width'])
-            opt['tags'] = 'arc'
+            opt['width'] = float(options.get('stroke-width', 1))
+            opt['tags'] = 'Ellipse'  # ✅ Cambiado a 'Ellipse'
+            
             log.info(opt)
             objects.create_oval(ovalo, opt)
-            log.info('create arco')
+            log.info('create ellipse')
 
 
 def addRectToCanvas(child_, objects):
@@ -341,78 +333,57 @@ def build(node_, objects, ids_creados=None):
     
     Returns:
         objects: Canvas modificado """
-    if ids_creados is None:
-         ids_creados = []
-    
     attrs = node_.attributes
     
-    if attrs != None:
+    if attrs is not None:
         options = {}
         for attr in list(attrs.keys()):
             if attr == 'width':
-                options[attr]=attrs[attr].value
+                options[attr] = attrs[attr].value
             elif attr == 'height':
-                options[attr]=attrs[attr].value
-
+                options[attr] = attrs[attr].value
+        
         objects.config(options)
-
-        # setAttributes(attrs, object)
+    
     for child_ in node_.childNodes:
         nodeName_ = child_.nodeName.split(':')[-1]
-
+        
         if child_.nodeType == Node.ELEMENT_NODE:
             try:
                 capitalLetter = nodeName_[0].upper()
                 objectinstance = capitalLetter + nodeName_[1:]
-
-                item_id = None
-
-                if objectinstance == 'Line':
-                    item_id = addLineToCanvas(child_, objects)
-
-                elif objectinstance == 'Polyline':
-                    item_id = addPolylineToCanvas(child_, objects)
-
-                elif objectinstance == 'Ellipse':
-                    item_id = addEllipseToCanvas(child_, objects)
                 
-                elif objectinstance == 'Rect':  # Añadir este caso
-                    item_id = addRectToCanvas(child_, objects)
-
+                if objectinstance == 'Line':
+                    addLineToCanvas(child_, objects)
+                elif objectinstance == 'Polyline':
+                    addPolylineToCanvas(child_, objects)
+                elif objectinstance == 'Ellipse':
+                    addEllipseToCanvas(child_, objects)
+                elif objectinstance == 'Rect':  # ✅ Añadido Rect
+                    addRectToCanvas(child_, objects)
                 elif objectinstance == 'Path':
-                    addPathToCanvas(child_, objects) # quitamos el item_id
-                # objectinstance=eval(capitalLetter+nodeName_[1:]) ()
-                if item_id is not None:
-                     ids_creados.append(item_id)
-
+                    addPathToCanvas(child_, objects)
+                    
             except Exception as e:
-                print(f'no class for: {nodeName_}, error: {e}')
+                print(f'Error processing {nodeName_}: {e}')
                 continue
-
-            # object.addElement(build(child_,objectinstance))
-
+        
         elif child_.nodeType == Node.TEXT_NODE:
-            #print "TextNode:"+child_.nodeValue
-            #if child_.nodeValue.startswith('\n'):
-            #    print "TextNode starts with return:"+child_.nodeValue
-            #else:
-            #    print "TextNode is:"+child_.nodeValue
-            #object.setTextContent(child_.nodeValue)
             if child_.nodeValue is not None and child_.nodeValue.strip() != '':
-                if hasattr(object, 'appendTextContent'):
-                     # print(len(child_.nodeValue))
+                if hasattr(objects, 'appendTextContent'):
                     objects.appendTextContent(child_.nodeValue)
-
+        
         elif child_.nodeType == Node.CDATA_SECTION_NODE:
-            if hasattr(object, 'appendTextContent'):
-                 objects.appendTextContent('<![CDATA['+child_.nodeValue+']]>')          
-
+            if hasattr(objects, 'appendTextContent'):
+                objects.appendTextContent('<![CDATA[' + child_.nodeValue + ']]>')
+        
         elif child_.nodeType == Node.COMMENT_NODE:
-            if hasattr(object, 'appendTextContent'):
-                objects.appendTextContent('<!-- '+child_.nodeValue+' -->')          
+            if hasattr(objects, 'appendTextContent'):
+                objects.appendTextContent('<!-- ' + child_.nodeValue + ' -->')
+        
         else:
             print(f"Some node: {nodeName_} value: {child_.nodeValue}")
-
+    
     return objects
 
 
