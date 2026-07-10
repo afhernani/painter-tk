@@ -85,9 +85,9 @@ class App:
         self.c.bind('<Leave>', self.__leavecanvas)
         
         # Cargar último archivo si existe
-        last_file = config.get_last_file()
-        if last_file and os.path.exists(last_file):
-            self.muestra(last_file)
+        # last_file = config.get_last_file()
+        # if last_file and os.path.exists(last_file):
+        #     self.muestra(last_file)
     
     def __entercanvas(self, *args):
         self.c.configure(cursor="tcross")
