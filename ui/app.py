@@ -1,7 +1,7 @@
 from tkinter import *
-from ..geometry.point import Punto
-from ..geometry.line import Linea
-from ..geometry.circle import Circulo
+from ..geometry.punto import Punto
+from ..geometry.linea import Linea
+from ..geometry.circulo import Circulo
 from ..geometry.polyline import Polyline
 
 class App:
