@@ -63,9 +63,9 @@ def configure(*flags):
                 "Please use one of constants: SEGMENT_TO_LINE, SEGMENT_TO_PATH"
             )
 
-import logging
-logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger('svgcanvas')
+# import logging
+# logging.basicConfig(level=logging.DEBUG)
+# log = logging.getLogger('svgcanvas')
 
 def calculateMethodName(attr):
     name = attr
@@ -86,7 +86,10 @@ def setAttributes(attrs, obj):
 
 
 def addLineToCanvas(child_, objects):
-    """Convierte un elemento SVG <line> a una línea de Tkinter"""
+    """
+    Convierte un elemento SVG <line> a una línea de Tkinter.
+    Consolidación de líneas fragmentadas en polilíneas.
+    """
     nodeName_ = child_.nodeName
     
     if child_.hasAttributes():
@@ -98,12 +101,13 @@ def addLineToCanvas(child_, objects):
             options = {}
             for attr in list(attrs.keys()):
                 if 'x' in attr:
-                    puntos_x.append(attrs[attr].value)
+                    puntos_x.append(float(attrs[attr].value))
                 elif 'y' in attr:
-                    puntos_y.append(attrs[attr].value)
+                    puntos_y.append(float(attrs[attr].value))
                 else:
                     options[attr] = attrs[attr].value
             
+            # Configurar opciones para Tkinter
             options_line = {}
             options_line['fill'] = options.get('stroke', 'black')
             options_line['width'] = float(options.get('stroke-width', 1))
@@ -111,12 +115,17 @@ def addLineToCanvas(child_, objects):
             options_line['smooth'] = False
             options_line['tags'] = 'Line'
             
-            lista_puntos = [float(puntos_x[0]), float(puntos_y[0]), 
-                           float(puntos_x[1]), float(puntos_y[1])]
+            # Construir lista de puntos
+            lista_puntos = []
+            for i in range(len(puntos_x)):
+                lista_puntos.extend([puntos_x[i], puntos_y[i]])
             
             log.info(f"lista_puntos = {lista_puntos}")
+            
+            # Crear línea en el canvas
             item_id = objects.create_line(lista_puntos, options_line)
             log.info(f'create line, id={item_id}')
+            
             return item_id
     
     return None
@@ -230,7 +239,10 @@ def addRectToCanvas(child_, objects):
 
 
 def addPathToCanvas(child_, objects):
-    """Convierte un elemento SVG <path> a Tkinter (pendiente de implementación completa)"""
+    """
+    Convierte un elemento SVG <path> a elementos de Tkinter.
+    Soporta comandos: M (move), L (line), A (arc), Z (close)
+    """
     nodeName_ = child_.nodeName
     
     if child_.hasAttributes():
@@ -242,11 +254,178 @@ def addPathToCanvas(child_, objects):
                 options[attr] = attrs[attr].value
             
             log.info(f"options path = {options}")
-            log.info("Nota: procesamiento de paths pendiente de implementación completa")
             
-            # TODO: Implementar parser de paths SVG
-            # Por ahora, retornar None
-            return None
+            # Obtener datos del path
+            path_data = options.get('d', '')
+            if not path_data:
+                log.warning("Path sin datos 'd'")
+                return None
+            
+            # Configurar opciones de estilo
+            stroke = options.get('stroke', 'black')
+            stroke_width = float(options.get('stroke-width', 1))
+            
+            # Parsear el path usando el lexer
+            from iterationlexica import lex
+            
+            tokens = list(lex(path_data))
+            log.info(f"Tokens del path: {tokens}")
+            
+            # Procesar tokens y crear elementos
+            current_x = 0
+            current_y = 0
+            start_x = 0
+            start_y = 0
+            last_id = None
+            
+            i = 0
+            while i < len(tokens):
+                token_type, token_value = tokens[i]
+                
+                if token_type == 'identificador':
+                    comando = token_value
+                    
+                    if comando == 'M':  # MoveTo
+                        # Obtener coordenadas
+                        if i + 1 < len(tokens) and tokens[i + 1][0] == 'number':
+                            current_x = float(tokens[i + 1][1])
+                            i += 1
+                        if i + 1 < len(tokens) and tokens[i + 1][0] == ',':
+                            i += 1
+                        if i + 1 < len(tokens) and tokens[i + 1][0] == 'number':
+                            current_y = float(tokens[i + 1][1])
+                            i += 1
+                        
+                        start_x = current_x
+                        start_y = current_y
+                        log.info(f"MoveTo: ({current_x}, {current_y})")
+                    
+                    elif comando == 'L':  # LineTo
+                        # Obtener coordenadas finales
+                        end_x = current_x
+                        end_y = current_y
+                        
+                        if i + 1 < len(tokens) and tokens[i + 1][0] == 'number':
+                            end_x = float(tokens[i + 1][1])
+                            i += 1
+                        if i + 1 < len(tokens) and tokens[i + 1][0] == ',':
+                            i += 1
+                        if i + 1 < len(tokens) and tokens[i + 1][0] == 'number':
+                            end_y = float(tokens[i + 1][1])
+                            i += 1
+                        
+                        # Crear línea
+                        options_line = {
+                            'fill': stroke,
+                            'width': stroke_width,
+                            'capstyle': ROUND,
+                            'smooth': False,
+                            'tags': 'Line'
+                        }
+                        
+                        last_id = objects.create_line(
+                            [current_x, current_y, end_x, end_y],
+                            options_line
+                        )
+                        
+                        current_x = end_x
+                        current_y = end_y
+                        
+                        log.info(f"LineTo: ({end_x}, {end_y}), id={last_id}")
+                    
+                    elif comando == 'A':  # Arc
+                        # Parámetros del arco: rx, ry, x-axis-rotation, large-arc-flag, sweep-flag, x, y
+                        rx = ry = 0
+                        x_axis_rotation = 0
+                        large_arc_flag = 0
+                        sweep_flag = 0
+                        end_x = current_x
+                        end_y = current_y
+                        
+                        # Parsear parámetros del arco
+                        params = []
+                        for j in range(7):
+                            if i + 1 < len(tokens) and tokens[i + 1][0] == 'number':
+                                params.append(float(tokens[i + 1][1]))
+                                i += 1
+                            elif i + 1 < len(tokens) and tokens[i + 1][0] == ',':
+                                i += 1
+                        
+                        if len(params) >= 7:
+                            rx, ry, x_axis_rotation, large_arc_flag, sweep_flag, end_x, end_y = params
+                        
+                            # Calcular puntos del arco (simplificado)
+                            # Para un arco completo, generamos puntos intermedios
+                            import math
+                            
+                            # Calcular ángulos
+                            dx = end_x - current_x
+                            dy = end_y - current_y
+                            
+                            # Aproximación: usar create_arc de Tkinter
+                            # Bounding box del arco
+                            bbox_x1 = min(current_x, end_x) - rx
+                            bbox_y1 = min(current_y, end_y) - ry
+                            bbox_x2 = max(current_x, end_x) + rx
+                            bbox_y2 = max(current_y, end_y) + ry
+                            
+                            # Calcular ángulos de inicio y extensión
+                            angle_start = math.degrees(math.atan2(-(current_y - (bbox_y1 + bbox_y2)/2), 
+                                                                  current_x - (bbox_x1 + bbox_x2)/2))
+                            angle_end = math.degrees(math.atan2(-(end_y - (bbox_y1 + bbox_y2)/2), 
+                                                                end_x - (bbox_x1 + bbox_x2)/2))
+                            
+                            extent = angle_end - angle_start
+                            if large_arc_flag:
+                                if extent > 0:
+                                    extent -= 360
+                                else:
+                                    extent += 360
+                            
+                            options_arc = {
+                                'outline': stroke,
+                                'width': stroke_width,
+                                'start': angle_start,
+                                'extent': extent,
+                                'style': ARC,
+                                'tags': 'Arco'
+                            }
+                            
+                            last_id = objects.create_arc(
+                                [bbox_x1, bbox_y1, bbox_x2, bbox_y2],
+                                options_arc
+                            )
+                            
+                            current_x = end_x
+                            current_y = end_y
+                            
+                            log.info(f"Arc: ({end_x}, {end_y}), id={last_id}")
+                    
+                    elif comando == 'Z' or comando == 'z':  # Close path
+                        # Cerrar el path volviendo al punto inicial
+                        if current_x != start_x or current_y != start_y:
+                            options_line = {
+                                'fill': stroke,
+                                'width': stroke_width,
+                                'capstyle': ROUND,
+                                'smooth': False,
+                                'tags': 'Line'
+                            }
+                            
+                            last_id = objects.create_line(
+                                [current_x, current_y, start_x, start_y],
+                                options_line
+                            )
+                            
+                            current_x = start_x
+                            current_y = start_y
+                            
+                            log.info(f"Close path, id={last_id}")
+                
+                i += 1
+            
+            log.info(f"Path completado, último id={last_id}")
+            return last_id
     
     return None
 

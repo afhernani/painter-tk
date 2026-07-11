@@ -54,7 +54,7 @@ def log_exception(logger, exception, context=""):
     logger.error(traceback.format_exc())
 
 # Logger por defecto
-default_logger = get_logger('Painter')
+# default_logger = get_logger('Painter')
 
 if __name__ == '__main__':
     # Prueba del sistema de logging

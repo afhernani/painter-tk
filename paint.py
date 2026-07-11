@@ -9,11 +9,11 @@ from canvasvg import saveall, convert
 import logging
 import os, sys
 #  Importar sistema de logging
-from logger import get_logger, log_exception
 from photos import Photos
 from utilitygraph import *
 from svgcanvas import loadSvg
 from configmanager import config
+from logger import get_logger, log_exception
 
 __author__ = "hernani <afhernani@gmail.com>"
 __all__ = ["App"]
@@ -637,12 +637,10 @@ class App:
                     tags = self.c.gettags(item)
                     item_type = self.c.type(item)
 
-                    log.debug(f"   Item {item}: type={item_type}, tags={tags}")
+                    log.debug(f"Item {item}: type={item_type}, tags={tags}")
                     
                     # Registrar si tiene uno de nuestros tags
-                    if ('Line' in tags or 'Ellipse' in tags or 
-                        'Rect' in tags or 'Arco' in tags or 
-                        'Polyline' in tags):
+                    if item_type in ['Line', 'Ellipse', 'Rect', 'Arco', 'Polyline' ]:
                         self.objetos.append(item)
                         self.colores_originales[item] = self.color_fg
                         log.info(f"Objeto {item} ({item_type}) registrado desde SVG, tags: {tags}")
