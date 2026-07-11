@@ -343,9 +343,9 @@ class App:
         self.__deseleccionar_todo()
         
         self.objeto_seleccionado = item_id
+        self.tipo_seleccionado = self.c.type(item_id)  # Devuelve 'line', 'oval', 'arc'
         self.tag_trazo_seleccionado = None
         
-        # Obtener tags del objeto
         tags = self.c.gettags(item_id)
         log.info(f'Tags del objeto {item_id}: {tags}')
         
@@ -355,38 +355,27 @@ class App:
                 self.tag_trazo_seleccionado = tag
                 break
         
-        # Resaltar visualmente - USAR canvas.type() para determinar fill o outline
+        # Resaltar visualmente
         if self.tag_trazo_seleccionado:
             for seg_id in self.trazos.get(self.tag_trazo_seleccionado, []):
                 self.c.itemconfig(seg_id, fill='red')
         else:
-            # ✅ Usar canvas.type() en lugar de tags
-            item_type = self.c.type(item_id)
-            if item_type == 'line':
-                # Línea o polígono (Rect, Circle creado con create_line)
+            # Usar self.tipo_seleccionado (minúsculas)
+            if self.tipo_seleccionado == 'line':
                 self.c.itemconfig(item_id, fill='red')
             else:
-                # Óvalo, arco (creados con create_oval, create_arc)
                 self.c.itemconfig(item_id, outline='red')
         
-        # Mostrar handles según el tipo real
+        # Mostrar handles según el tipo
         if self.tag_trazo_seleccionado:
             pass  # El lápiz no tiene handles
+        elif self.tipo_seleccionado == 'line':
+            # Comparar con 'line' (minúsculas)
+            self.__mostrar_handles_linea(item_id)
         else:
-            item_type = self.c.type(item_id)
-            if item_type == 'line':
-                # Para líneas simples (2 puntos): 2 handles
-                coords = self.c.coords(item_id)
-                if len(coords) == 4:
-                    self.__mostrar_handles_linea(item_id)
-                else:
-                    # Para polígonos (círculos, rectángulos): 4 handles bbox
-                    self.__mostrar_handles_bbox(item_id)
-            else:
-                # Óvalos, arcos: 4 handles bbox
-                self.__mostrar_handles_bbox(item_id)
+            self.__mostrar_handles_bbox(item_id)
         
-        self.statusbar['text'] = f"Objeto {item_id} ({self.c.type(item_id)}) seleccionado"
+        self.statusbar['text'] = f"Objeto {item_id} ({self.tipo_seleccionado}) seleccionado"
     
     def __seleccionar_trazo_lapiz(self, tag_trazo):
         if self.objeto_seleccionado is not None:
@@ -523,15 +512,15 @@ class App:
     def __restaurar_apariencia(self, item_id):
         """Restaurar la apariencia de los objetos"""
         try:
+            tags = self.c.gettags(item_id)
             if self.tag_trazo_seleccionado:
                 for seg_id in self.trazos.get(self.tag_trazo_seleccionado, []):
                     color = self.colores_originales.get(seg_id, self.color_fg)
                     self.c.itemconfig(seg_id, fill=color)
             else:
                 color = self.colores_originales.get(item_id, self.color_fg)
-                # Usar canvas.type() para determinar fill o outline
-                item_type = self.c.type(item_id)
-                if item_type == 'line':
+                # ✅ Usar self.tipo_seleccionado (minúsculas)
+                if self.tipo_seleccionado == 'line':
                     self.c.itemconfig(item_id, fill=color)
                 else:
                     self.c.itemconfig(item_id, outline=color)
@@ -616,8 +605,6 @@ class App:
         if filepath is None:
             filepath = 'downloads/canvas.svg'
         
-        log.info(f"Cargando: {filepath}")
-
         if os.path.exists(filepath):
             self.c.delete(ALL)
             self.objetos.clear()
@@ -626,28 +613,17 @@ class App:
             self.contador_trazos = 0
             
             try:
-                # loadSvg no devuelve tupla, solo canvas
-                loadSvg(filepath, self.c)
+                canvas, ids_creados = loadSvg(filepath, self.c)
                 
-                # Registrar todos los items del canvas basándose en sus tags
-                todos_items = self.c.find_all()
-                log.info(f"   Total items en canvas después de cargar: {len(todos_items)}")
-
-                for item in todos_items:
-                    tags = self.c.gettags(item)
-                    item_type = self.c.type(item)
-
-                    log.debug(f"Item {item}: type={item_type}, tags={tags}")
-                    
-                    # Registrar si tiene uno de nuestros tags
-                    if item_type in ['Line', 'Ellipse', 'Rect', 'Arco', 'Polyline' ]:
-                        self.objetos.append(item)
-                        self.colores_originales[item] = self.color_fg
-                        log.info(f"Objeto {item} ({item_type}) registrado desde SVG, tags: {tags}")
-                    else:
-                        log.warning(f"Item {item} no registrado (tags: {tags})")
+                # ✅ Iterar sobre los IDs creados (no sobre todos los items)
+                for item_id in ids_creados:
+                    if item_id not in self.objetos:
+                        self.objetos.append(item_id)
+                        item_type = self.c.type(item_id)
+                        self.colores_originales[item_id] = self.color_fg
+                        log.info(f"Objeto {item_id} ({item_type}) registrado desde SVG")
                 
-                self.statusbar['text'] = f'{filepath} loaded ({len(self.objetos)} objetos)'
+                self.statusbar['text'] = f'{filepath} loaded ({len(ids_creados)} objetos)'
                 log.info(f"Total objetos en self.objetos: {len(self.objetos)}")
                 
             except Exception as e:
