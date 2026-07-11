@@ -41,31 +41,31 @@ class Photos:
     def __init__(self):
         """Carga todos los iconos necesarios"""
         # Iconos de herramientas de dibujo
-        self._line = tk.PhotoImage(file=resource_path('Images/line.png'))
-        self._pen = tk.PhotoImage(file=resource_path('Images/pen.png'))
-        self._circle = tk.PhotoImage(file=resource_path('Images/circle.png'))
-        self._arco = tk.PhotoImage(file=resource_path('Images/arco.png'))
-        self._oval = tk.PhotoImage(file=resource_path('Images/oval.png'))
-        self._square = tk.PhotoImage(file=resource_path('Images/square.png'))
-        self._rectangle = tk.PhotoImage(file=resource_path('Images/rectangle.png'))
+        self._line = tk.PhotoImage(file=resource_path('Assets/line.png'))
+        self._pen = tk.PhotoImage(file=resource_path('Assets/pen.png'))
+        self._circle = tk.PhotoImage(file=resource_path('Assets/circle.png'))
+        self._arco = tk.PhotoImage(file=resource_path('Assets/arco.png'))
+        self._oval = tk.PhotoImage(file=resource_path('Assets/oval.png'))
+        self._square = tk.PhotoImage(file=resource_path('Assets/square.png'))
+        self._rectangle = tk.PhotoImage(file=resource_path('Assets/rectangle.png'))
         
         # Iconos de acciones
-        self._apply = tk.PhotoImage(file=resource_path('Images/pirate.png'))
-        self._copy = tk.PhotoImage(file=resource_path('Images/copy.png'))
-        self._delete = tk.PhotoImage(file=resource_path('Images/delete.png'))
-        self._move = tk.PhotoImage(file=resource_path('Images/move.png'))
-        self._property = tk.PhotoImage(file=resource_path('Images/property.png'))
-        self._rename = tk.PhotoImage(file=resource_path('Images/rename.png'))
-        self._spider = tk.PhotoImage(file=resource_path('Images/spider.png'))
-        self._sprite = tk.PhotoImage(file=resource_path('Images/th.png'))
+        self._apply = tk.PhotoImage(file=resource_path('Assets/pirate.png'))
+        self._copy = tk.PhotoImage(file=resource_path('Assets/copy.png'))
+        self._delete = tk.PhotoImage(file=resource_path('Assets/delete.png'))
+        self._move = tk.PhotoImage(file=resource_path('Assets/move.png'))
+        self._property = tk.PhotoImage(file=resource_path('Assets/property.png'))
+        self._rename = tk.PhotoImage(file=resource_path('Assets/rename.png'))
+        self._spider = tk.PhotoImage(file=resource_path('Assets/spider.png'))
+        self._sprite = tk.PhotoImage(file=resource_path('Assets/th.png'))
         
         # Logo
-        self._logo = tk.PhotoImage(file=resource_path('Images/th.png'))
+        self._logo = tk.PhotoImage(file=resource_path('Assets/th.png'))
         
         # Animación de carga (frames de loading.gif)
         try:
             from PIL import Image
-            loading_path = resource_path('Images/loading.gif')
+            loading_path = resource_path('Assets/loading.gif')
             img = Image.open(loading_path)
             self._frames = [
                 tk.PhotoImage(

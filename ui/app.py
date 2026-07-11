@@ -23,7 +23,7 @@ log = logging.getLogger('Paint.App')
 class App:
     """Aplicación principal de dibujo."""
     
-    def __init__(app_self, master):
+    def __init__(self, master):
         """
         Inicializa la aplicación.
         
@@ -72,9 +72,9 @@ class App:
         self._build_menu()
         
         # Cargar último archivo si existe
-        last_file = config.get_last_file()
-        if last_file and os.path.exists(last_file):
-            self._load_file(last_file)
+        # last_file = config.get_last_file()
+        # if last_file and os.path.exists(last_file):
+        #     self._load_file(last_file)
         
         log.info("Aplicación inicializada")
     
