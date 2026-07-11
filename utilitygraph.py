@@ -1,139 +1,257 @@
-import numpy as np
-from numpy import ones, vstack
-from numpy.linalg import lstsq
-import sympy as sm
+# -*- coding: utf-8 -*-
+"""
+Funciones gráficas auxiliares para painter-tk
+Contiene funciones matemáticas para dibujar formas geométricas
+"""
 import math
-import logging
-
-logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger('ecu')
+import numpy as np
 
 
-def ecu_linea(*points):
-    x_coords, y_coords = zip(*points)
-    log.info(f"x_coords_list: {x_coords}")
-    log.info(f"y_coords_list: {y_coords}")
-    A = vstack([x_coords, ones(len(x_coords))]).T
-    m, c = lstsq(A, y_coords, rcond=-1)[0]
-    ecuacion = "y = {m:.4f}·x + {c:.4f}".format(m=m,c=c)
-    log.info(f"Line Solution is {ecuacion}")
-    return (m, c, ecuacion)
-
-def distancia(*points):
-    x_coords, y_coords = points
-    x = y_coords[0] - x_coords[0]
-    y = y_coords[1] - x_coords[1]
-    return math.sqrt(x*x + y*y)
-
-def pMedio(*points):
-    x_coords, y_coords = points
-    x = (x_coords[0] + y_coords[0]) / 2
-    y = (x_coords[1] + y_coords[1]) / 2
+def polar_to_cartesian(r, theta):
+    """
+    Convierte coordenadas polares a cartesianas.
+    
+    Args:
+        r: Radio (distancia al origen)
+        theta: Ángulo en radianes
+    
+    Returns:
+        Tupla (x, y) en coordenadas cartesianas
+    """
+    x = r * math.cos(theta)
+    y = r * math.sin(theta)
     return (x, y)
 
-def razonMedia(*points, r=2):
-    '''puntos [(x1, y1), (x2, y2)]
-       razon de la division '''
-    x_coords, y_coords = points
-    x = (x_coords[0] + y_coords[0]) /  r
-    y = (x_coords[1] + y_coords[1]) /  r
-    return (x, y)
 
-def cartesian_to_polar(x, y): 
-   # rr = sym.sqrt(x**2 + y**2)
-   rr = math.sqrt(x**2 + y**2)
-   #theta = sym.atan2(y, x)#import numpy as np
-   theta = math.atan2(y, x)
-   return(rr, theta)
-
-def polar_to_cartesian(r, theta): # 'def' nos permite 'crear' nuestras propias funciones en Python.
-   # xx = r * sym.cos(theta)
-   xx = r * math.cos(theta)
-   ## yy = r * sym.sin(theta)
-   yy = r * math.sin(theta)
-   return(xx, yy)
-
-def vectorP(*points):
-    origen, final = points
-    return final[0]-origen[0], final[1]-origen[1]
-
-def rectasRectangulo(*points, n=3):
-    origen, final = points
-    vector = vectorP(*points)
-    d = math.sqrt(vector[0]*vector[0]+ vector[1]*vector[1])
-    log.info(f"vector: {vector}, dist: {d}")
-    if d == 0: d=1
-    vectorU = (vector[0] / d , vector[1] / d)
-    log.info(f"vector unitario: {vectorU}")
-    vectorM = (d / 2 * vectorU[0] , d / 2 * vectorU[1])
-    log.info(f"vector medio: {vectorM}")
-    vectorG = ( origen[0] + vectorM[0], origen[1]+vectorM[1])
+def cartesian_to_polar(x, y):
+    """
+    Convierte coordenadas cartesianas a polares.
     
-    r = d/2
-    if n<3: n=3
-    m = 45*2*math.pi /360
-    # calculo del angulo    
-    Ux = np.array([0, 1])
-    Bx = np.array(vectorM)
-    dot = np.dot(Ux, Bx)
-    ang = math.acos(dot/d)
-    log.info(f"angulo: {ang}")
-    # definimos los puntos
-    angulos = np.arange(m-ang, 2*math.pi, 2*math.pi/n)
-    print(angulos)
-    angulos = angulos[:4]
-    coordenadas = []
+    Args:
+        x: Coordenada x
+        y: Coordenada y
     
-    for thao in angulos:
-        cc = polar_to_cartesian(r, thao)
-        
-        vvx, vvy = cc[0] + vectorG[0] , cc[1] + vectorG[1]
-        coordenadas.append(vvx)
-        coordenadas.append(vvy)
-    print(coordenadas, 'longitud=', len(coordenadas))
-    coordenadas.extend([coordenadas[0], coordenadas[1]])
-    return coordenadas
+    Returns:
+        Tupla (r, theta) en coordenadas polares
+    """
+    r = math.sqrt(x**2 + y**2)
+    theta = math.atan2(y, x)
+    return (r, theta)
 
-def rectasCircunferencia(*points):
-    origen, final = points
-    vector = vectorP(*points)
-    d = math.sqrt(vector[0]*vector[0]+ vector[1]*vector[1])
-    log.info(f"vector: {vector}, dist: {d}")
-    if d == 0: d=1
-    vectorU = (vector[0] / d , vector[1] / d)
-    log.info(f"vector unitario: {vectorU}")
-    vectorM = (d / 2 * vectorU[0] , d / 2 * vectorU[1])
-    log.info(f"vector medio: {vectorM}")
-    vectorG = ( origen[0] + vectorM[0], origen[1]+vectorM[1])
+
+def distancia_entre_puntos(p1, p2):
+    """
+    Calcula la distancia euclidiana entre dos puntos.
     
-    coordenadas = []
-    r = d/2
-
-    angulos = np.arange(0, 2*math.pi, 0.03)
-    for thao in angulos:
-        cc = polar_to_cartesian(r, thao)
-        
-        vvx, vvy = cc[0] + vectorG[0] , cc[1] + vectorG[1]
-        coordenadas.append(vvx)
-        coordenadas.append(vvy)
-        
-    return coordenadas
+    Args:
+        p1: Tupla (x1, y1)
+        p2: Tupla (x2, y2)
+    
+    Returns:
+        Distancia entre los puntos
+    """
+    return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
 
 
-def main():
-    points = [(-4, 3),(6, -2)]
-    m, c, ecu = ecu_linea(*points)
-    log.info(f"m: {m}, c: {c}")
-    d = distancia(*points)
-    log.info(f"dist: {d}")
-    m = pMedio(*points)
-    log.info(f"punto medio: {m}")
-    rm = razonMedia(*points, r=3)
-    log.info(f"razon: {rm}")
-    #pc = rectasCircunferencia(*points)
-    #print(pc); print(len(pc))
-    puntos = rectasRectangulo(*points, n=4)
-    log.info(f"puntos: {puntos}")
+def punto_medio(p1, p2):
+    """
+    Calcula el punto medio entre dos puntos.
+    
+    Args:
+        p1: Tupla (x1, y1)
+        p2: Tupla (x2, y2)
+    
+    Returns:
+        Tupla (x, y) del punto medio
+    """
+    return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
+
+
+def rectasCircunferencia(p1, p2, n=100):
+    """
+    Genera los puntos de una circunferencia dados dos puntos.
+    El primer punto es el centro y el segundo define el radio.
+    
+    Args:
+        p1: Tupla (x1, y1) - Centro de la circunferencia
+        p2: Tupla (x2, y2) - Punto en la circunferencia (define el radio)
+        n: Número de puntos a generar (por defecto 100)
+    
+    Returns:
+        Lista de coordenadas [x1, y1, x2, y2, ..., xn, yn]
+    """
+    # Calcular centro y radio
+    cx, cy = p1
+    radio = distancia_entre_puntos(p1, p2)
+    
+    # Generar puntos de la circunferencia
+    puntos = []
+    for i in range(n):
+        theta = 2 * math.pi * i / n
+        x = cx + radio * math.cos(theta)
+        y = cy + radio * math.sin(theta)
+        puntos.extend([x, y])
+    
+    return puntos
+
+
+def rectasRectangulo(p1, p2, n=4):
+    """
+    Genera los puntos de un rectángulo dados dos puntos diagonales.
+    
+    Args:
+        p1: Tupla (x1, y1) - Esquina superior izquierda
+        p2: Tupla (x2, y2) - Esquina inferior derecha
+        n: Número de puntos (por defecto 4 para un rectángulo)
+    
+    Returns:
+        Lista de coordenadas [x1, y1, x2, y2, x3, y3, x4, y4]
+    """
+    x1, y1 = p1
+    x2, y2 = p2
+    
+    # Asegurar que x1 < x2 y y1 < y2
+    if x1 > x2:
+        x1, x2 = x2, x1
+    if y1 > y2:
+        y1, y2 = y2, y1
+    
+    # Generar los 4 vértices del rectángulo
+    puntos = [
+        x1, y1,  # Esquina superior izquierda
+        x2, y1,  # Esquina superior derecha
+        x2, y2,  # Esquina inferior derecha
+        x1, y2   # Esquina inferior izquierda
+    ]
+    
+    return puntos
+
+
+def generar_elipse(centro, radio_x, radio_y, n=100):
+    """
+    Genera los puntos de una elipse.
+    
+    Args:
+        centro: Tupla (cx, cy) - Centro de la elipse
+        radio_x: Radio en el eje x
+        radio_y: Radio en el eje y
+        n: Número de puntos a generar
+    
+    Returns:
+        Lista de coordenadas [x1, y1, x2, y2, ..., xn, yn]
+    """
+    cx, cy = centro
+    puntos = []
+    
+    for i in range(n):
+        theta = 2 * math.pi * i / n
+        x = cx + radio_x * math.cos(theta)
+        y = cy + radio_y * math.sin(theta)
+        puntos.extend([x, y])
+    
+    return puntos
+
+
+def generar_arco(centro, radio, angulo_inicio, angulo_fin, n=50):
+    """
+    Genera los puntos de un arco.
+    
+    Args:
+        centro: Tupla (cx, cy) - Centro del arco
+        radio: Radio del arco
+        angulo_inicio: Ángulo de inicio en radianes
+        angulo_fin: Ángulo de fin en radianes
+        n: Número de puntos a generar
+    
+    Returns:
+        Lista de coordenadas [x1, y1, x2, y2, ..., xn, yn]
+    """
+    cx, cy = centro
+    puntos = []
+    
+    for i in range(n):
+        t = i / (n - 1)
+        theta = angulo_inicio + t * (angulo_fin - angulo_inicio)
+        x = cx + radio * math.cos(theta)
+        y = cy + radio * math.sin(theta)
+        puntos.extend([x, y])
+    
+    return puntos
+
+
+def rotar_punto(punto, centro, angulo):
+    """
+    Rota un punto alrededor de un centro.
+    
+    Args:
+        punto: Tupla (x, y) - Punto a rotar
+        centro: Tupla (cx, cy) - Centro de rotación
+        angulo: Ángulo de rotación en radianes
+    
+    Returns:
+        Tupla (x, y) del punto rotado
+    """
+    x, y = punto
+    cx, cy = centro
+    
+    # Trasladar al origen
+    x_rel = x - cx
+    y_rel = y - cy
+    
+    # Rotar
+    x_rot = x_rel * math.cos(angulo) - y_rel * math.sin(angulo)
+    y_rot = x_rel * math.sin(angulo) + y_rel * math.cos(angulo)
+    
+    # Trasladar de vuelta
+    return (x_rot + cx, y_rot + cy)
+
+
+def escalar_punto(punto, centro, factor):
+    """
+    Escala un punto respecto a un centro.
+    
+    Args:
+        punto: Tupla (x, y) - Punto a escalar
+        centro: Tupla (cx, cy) - Centro de escalado
+        factor: Factor de escala
+    
+    Returns:
+        Tupla (x, y) del punto escalado
+    """
+    x, y = punto
+    cx, cy = centro
+    
+    x_esc = cx + (x - cx) * factor
+    y_esc = cy + (y - cy) * factor
+    
+    return (x_esc, y_esc)
+
 
 if __name__ == '__main__':
-    main()
+    # Pruebas de las funciones
+    print("=== Pruebas de utilitygraph ===")
+    
+    # Prueba de distancia
+    p1 = (0, 0)
+    p2 = (3, 4)
+    dist = distancia_entre_puntos(p1, p2)
+    print(f"Distancia entre {p1} y {p2}: {dist}")
+    
+    # Prueba de punto medio
+    medio = punto_medio(p1, p2)
+    print(f"Punto medio: {medio}")
+    
+    # Prueba de circunferencia
+    puntos_circ = rectasCircunferencia((0, 0), (1, 0), n=8)
+    print(f"Puntos de circunferencia (8 puntos): {puntos_circ}")
+    
+    # Prueba de rectángulo
+    puntos_rect = rectasRectangulo((0, 0), (10, 5))
+    print(f"Puntos de rectángulo: {puntos_rect}")
+    
+    # Prueba de conversión polar-cartesiano
+    x, y = polar_to_cartesian(5, math.pi/4)
+    print(f"Polar (5, π/4) → Cartesiano ({x:.2f}, {y:.2f})")
+    
+    r, theta = cartesian_to_polar(3, 4)
+    print(f"Cartesiano (3, 4) → Polar ({r:.2f}, {theta:.2f})")

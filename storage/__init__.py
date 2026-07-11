@@ -7,12 +7,14 @@ Actúa como capa de persistencia entre los modelos geométricos
 y el formato de archivo SVG.
 """
 
-from .svg_exporter import exportar_svg
-from .svg_importer import importar_svg
+from .svg_exporter import saveall, convert, SVGdocument
+from .svg_importer import loadSvg
 
 __all__ = [
-    'exportar_svg',
-    'importar_svg',
+    'saveall',
+    'convert',
+    'SVGdocument',
+    'loadSvg',
 ]
 
 __version__ = '1.0.0'

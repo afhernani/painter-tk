@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
-# Tkinter canvas to SVG exporter
-
+"""
+Gestor de configuración para painter-tk
+Usa configparser para manejar archivos .ini
+"""
 import configparser
 import os
 from pathlib import Path
 
-__author__  = "hernani <afhernani@gmail.com>"
-
-__all__ = ["ConfigManager"]
 
 class ConfigManager:
-    """Gestiona la configuración de la aplicación usando configparser"""
+    """Gestiona la configuración de la aplicación"""
     
     def __init__(self, config_file='config.ini'):
         """
@@ -22,12 +21,12 @@ class ConfigManager:
         self.config_file = config_file
         self.config = configparser.ConfigParser()
         
-        # Valores por defecto
+        # Establecer valores por defecto
         self._set_defaults()
         
         # Cargar configuración existente si existe
         if os.path.exists(config_file):
-            self.config.read(config_file)
+            self.config.read(config_file, encoding='utf-8')
         else:
             # Si no existe, crear con valores por defecto
             self.save()
@@ -42,7 +41,7 @@ class ConfigManager:
         }
         
         self.config['Pen'] = {
-            'default_width': '5',
+            'default_width': '5.0',
             'default_color_fg': 'black',
             'default_color_bg': 'white'
         }
@@ -111,7 +110,7 @@ class ConfigManager:
     def get_pen_defaults(self):
         """Obtiene los valores por defecto del pincel"""
         return {
-            'width': self.getfloat('Pen', 'default_width', 1),
+            'width': self.getfloat('Pen', 'default_width', 5.0),
             'color_fg': self.get('Pen', 'default_color_fg', 'black'),
             'color_bg': self.get('Pen', 'default_color_bg', 'white')
         }
@@ -128,3 +127,12 @@ class ConfigManager:
 
 # Instancia global para usar en toda la aplicación
 config = ConfigManager()
+
+
+if __name__ == '__main__':
+    # Prueba del gestor de configuración
+    print("=== Prueba de ConfigManager ===")
+    print(f"Tamaño del canvas: {config.get_canvas_size()}")
+    print(f"Valores del pincel: {config.get_pen_defaults()}")
+    print(f"Último archivo: {config.get_last_file()}")
+    print(f"Archivo de configuración: {config.config_file}")
