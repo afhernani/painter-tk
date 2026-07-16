@@ -107,9 +107,9 @@ class CanvasView(tk.Canvas):
         
         log.info("CanvasView inicializado")
 
-    def _on_click(self, event):
-        log.info("_on_click: click")
-        self.focus_set()
+    # def _on_click(self, event):
+    #     log.info("_on_click: click")
+    #     self.focus_set()
         
 
     def _get_mode(self):

@@ -79,8 +79,8 @@ class App(tk.Frame):
         self.canvasview.set_status_callback(self.statusbar.set_text)
         
         # Callbacks de Toolbar
-        self.toolbar._on_mode_changed=self._on_mode_change
-        self.toolbar._on_width_changed=self._on_width_change
+        self.toolbar._on_mode_change = self._on_mode_change
+        self.toolbar._on_width_change = self._on_width_change
         self.toolbar.on_polygon_sides_change = self._on_polygon_sides_change
         # Conectar botones de color
         self.toolbar.on_bg_color_change = self.change_bg

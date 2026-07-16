@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 
 class Toolbar:
-    def __init__(self, parent, photos, default_mode='L', default_width=2.5):
+    def __init__(self, parent, photos, default_mode='L', default_width=2.):
         self.photos = photos
         
         # Variables de estado
