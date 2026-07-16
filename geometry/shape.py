@@ -3,14 +3,14 @@
 Clase base abstracta para todas las formas geométricas
 """
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Optional
+from typing import Tuple, Optional
 import tkinter as tk
 
 
 class Shape(ABC):
     """Clase base abstracta para formas geométricas"""
     
-    def __init__(self, color: str = 'black', grosor: float = 1.0, relleno: str = ''):
+    def __init__(self, color: str = 'black', grosor: float = 1.0, relleno: str = '', **kwargs):
         """
         Inicializa una forma con propiedades visuales
         
@@ -23,6 +23,7 @@ class Shape(ABC):
         self.grosor = grosor
         self.relleno = relleno
         self._canvas_id: Optional[int] = None
+        self._original_color = color
     
     @property
     def canvas_id(self) -> Optional[int]:
@@ -77,6 +78,16 @@ class Shape(ABC):
         if self._canvas_id is not None:
             bbox = self.bbox()
             canvas.coords(self._canvas_id, *bbox)
+    
+    @abstractmethod
+    def resaltar(self, canvas: tk.Canvas, color: str = 'red'):
+        """Resalta la forma visualmente (selección)."""
+        pass
+
+    @abstractmethod
+    def restaurar(self, canvas: tk.Canvas):
+        """Restaura el color original de la forma."""
+        pass
     
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(color={self.color}, grosor={self.grosor})"

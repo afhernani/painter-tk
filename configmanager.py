@@ -43,7 +43,8 @@ class ConfigManager:
         self.config['Pen'] = {
             'default_width': '5.0',
             'default_color_fg': 'black',
-            'default_color_bg': 'white'
+            'default_color_bg': 'white',
+            'default_color_fill': ''
         }
         
         self.config['Recent'] = {
@@ -110,7 +111,7 @@ class ConfigManager:
     def get_pen_defaults(self):
         """Obtiene los valores por defecto del pincel"""
         return {
-            'width': self.getfloat('Pen', 'default_width', 5.0),
+            'width': self.getfloat('Pen', 'default_width', 1.0),
             'color_fg': self.get('Pen', 'default_color_fg', 'black'),
             'color_bg': self.get('Pen', 'default_color_bg', 'white')
         }

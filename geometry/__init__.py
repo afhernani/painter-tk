@@ -1,19 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-Paquete geometry - Clases para formas geométricas en painter-tk
+Paquete geometry - Modelos geométricos para painter-tk
 
-Este paquete contiene todas las clases necesarias para representar
-formas geométricas en el sistema de dibujo.
+Este paquete contiene las clases que representan las formas geométricas
+que se pueden dibujar en el canvas. Cada clase encapsula sus propios
+datos geométricos y sabe cómo dibujarse a sí misma.
 """
 
-from .punto import Punto
+from .point import Punto
 from .shape import Shape
-from .linea import Linea
-from .circulo import Circulo
-from .rectangulo import Rectangulo
-from .elipse import Elipse
-from .arco import Arco
+from .line import Linea
+from .circle import Circulo
+from .rectangle import Rectangulo
+from .ellipse import Elipse
+from .arc import Arco
 from .polyline import Polyline
+from .pointshape import PointShape
+from .polygon import Poligono
 
 __all__ = [
     'Punto',
@@ -24,6 +27,9 @@ __all__ = [
     'Elipse',
     'Arco',
     'Polyline',
+    'PointShape',
+    'Poligono'
 ]
 
 __version__ = '1.0.0'
+__author__ = 'hernani <afhernani@gmail.com>'

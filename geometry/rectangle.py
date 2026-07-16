@@ -2,7 +2,7 @@
 """
 Clase Rectangulo para representar rectángulos
 """
-from .punto import Punto
+from .point import Punto
 from .shape import Shape
 import tkinter as tk
 from typing import Tuple
@@ -56,6 +56,32 @@ class Rectangulo(Shape):
         if self._canvas_id is not None:
             bbox = self.bbox()
             canvas.coords(self._canvas_id, *bbox)
-    
+
+    def resaltar(self, canvas: tk.Canvas, color: str = 'red'):
+        if self._canvas_id is not None:
+            canvas.itemconfig(self._canvas_id, outline=color)
+
+    def restaurar(self, canvas: tk.Canvas):
+        if self._canvas_id is not None:
+            canvas.itemconfig(self._canvas_id, outline=self._original_color)
+
+    def to_dict(self):
+        return {
+            "type": "Rectangulo",
+            "p1": self.p1.to_dict(),
+            "p2": self.p2.to_dict(),
+            "color": self.color,
+            "grosor": self.grosor,
+            "relleno": getattr(self, 'relleno', '')
+        }
+
+    def dibujar_en_pil(self, draw):
+        """Dibuja el rectángulo en una imagen PIL"""
+        bbox = [
+            min(self.p1.x, self.p2.x), min(self.p1.y, self.p2.y),
+            max(self.p1.x, self.p2.x), max(self.p1.y, self.p2.y)
+        ]
+        draw.rectangle(bbox, outline=self.color, width=int(self.grosor))
+
     def __repr__(self) -> str:
         return f"Rectangulo({self.p1}, {self.p2}, color={self.color})"
