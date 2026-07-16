@@ -232,8 +232,9 @@ class CanvasView(tk.Canvas):
         if mode == 'A' and self.arco_estado == 2:
             if self.arco_preview_id is not None:
                 self.delete(self.arco_preview_id)
+            # correccion negativo de (e.y - centro.y)
             angulo_actual = math.degrees(math.atan2(
-                e.y - self.arco_centro.y,
+                -(e.y - self.arco_centro.y),
                 e.x - self.arco_centro.x
             ))
             extension = angulo_actual - self.arco_angulo_inicio
@@ -380,8 +381,9 @@ class CanvasView(tk.Canvas):
                 # Segundo clic: punto inicial (define radio y ángulo de inicio)
                 self.arco_p1 = Punto(e.x, e.y)
                 self.arco_radio = self.arco_centro.distancia(self.arco_p1)
+                # negar (e.y - centro.y) para compensar el eje y invertirlo
                 self.arco_angulo_inicio = math.degrees(math.atan2(
-                    self.arco_p1.y - self.arco_centro.y,
+                    -(self.arco_p1.y - self.arco_centro.y),
                     self.arco_p1.x - self.arco_centro.x
                 ))
                 self.arco_estado = 2
@@ -1617,8 +1619,9 @@ class CanvasView(tk.Canvas):
         
         # Calcular ángulo final
         p2 = Punto(x, y)
+        # correccion negativa (p2 - centro.y)
         angulo_final = math.degrees(math.atan2(
-            p2.y - self.arco_centro.y,
+            -(p2.y - self.arco_centro.y),
             p2.x - self.arco_centro.x
         ))
         extension = angulo_final - self.arco_angulo_inicio
