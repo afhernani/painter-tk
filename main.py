@@ -54,7 +54,7 @@ def cargar_configuracion():
         return {
             'color_fg': config.get('Pen', 'default_color_fg', 'black'),
             'color_bg': config.get('Pen', 'default_color_bg', 'white'),
-            'penwidth': config.getfloat('Pen', 'default_width', 1.0),
+            'penwidth': config.getfloat('Pen', 'default_width', 2.5),
             'canvas_width': config.getint('General', 'canvas_width', 800),
             'canvas_height': config.getint('General', 'canvas_height', 600),
             'default_mode': config.get('General', 'default_mode', 'L'),
@@ -65,7 +65,7 @@ def cargar_configuracion():
         return {
             'color_fg': 'black',
             'color_bg': 'white',
-            'penwidth': 1.0,
+            'penwidth': 2.5,
             'canvas_width': 800,
             'canvas_height': 600,
             'default_mode': 'L',

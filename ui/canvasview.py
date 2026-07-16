@@ -148,6 +148,7 @@ class CanvasView(tk.Canvas):
     # ----------------
     def _on_mouse_move(self, e):
         """Actualiza la línea preview para que siga al cursor"""
+        self._set_status(f"{e.x, e.y}")
         mode = self._get_mode()
         
         # Si estamos en modo línea y ya hemos hecho el primer click

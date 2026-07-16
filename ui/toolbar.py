@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 
 class Toolbar:
-    def __init__(self, parent, photos, default_mode='L', default_width=5.0):
+    def __init__(self, parent, photos, default_mode='L', default_width=2.5):
         self.photos = photos
         
         # Variables de estado
@@ -85,7 +85,7 @@ class Toolbar:
             from_=0.0,
             to=20.0,
             increment=0.1,
-            format="%.1f",       # ✅ Fuerza a mostrar 1 decimal (ej: 1.5, 2.0)
+            format="%.1f",       # Fuerza a mostrar 1 decimal (ej: 1.5, 2.0)
             width=4,
             textvariable=self.penwidth_var,
             command=self._on_width_changed
@@ -170,9 +170,12 @@ class Toolbar:
     def _on_width_changed(self):
         """Callback interno cuando cambia el grosor del pincel desde el Spinbox"""
         # Leemos el valor directamente de la variable asociada al Spinbox
-        value = self.penwidth_var.get()
+        # value = self.penwidth_var.get()
+        # log.info(f"_on_width_changed: {value}")
         if self.on_width_change:
-            self.on_width_change(float(value))
+            self.on_width_change(self.penwidth_var.get())
+            # config.set('Pen', 'default_width', str(value))
+            #config.save()
 
     def _on_polygon_sides_changed(self):
         if self.on_polygon_sides_change:

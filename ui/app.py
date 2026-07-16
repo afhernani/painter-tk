@@ -22,8 +22,9 @@ class App(tk.Frame):
     """Aplicación principal de dibujo"""
     
     def __init__(self, master):
-        super().__init__(master)
+        #super().__init__(master)
         self.master = master
+        self.master.title("Painter TK")
         # Si config es None, usa el config global
         # if config is None:
         #     from configmanager import config as config_global
@@ -31,7 +32,7 @@ class App(tk.Frame):
         # else:
         #     self.config = config
         
-        self.pack(fill=tk.BOTH, expand=True)
+        #self.pack(fill=tk.BOTH, expand=True)
         
         # Configuración
         pen_defaults  = config.get_pen_defaults()
@@ -41,16 +42,17 @@ class App(tk.Frame):
         self.color_fg = pen_defaults['color_fg']
         self.color_bg = pen_defaults['color_bg']
         self.penwidth = pen_defaults['width']
+        self.color_fill = pen_defaults['color_fill']
         
         self.photos = Photos()
         
         # StatusBar
-        self.statusbar = StatusBar(self)
-        #self.statusbar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.statusbar = StatusBar(self.master)
+        self.statusbar.pack(side=tk.BOTTOM, fill=tk.X)
         
         # Toolbar
         self.toolbar = Toolbar(
-            self,
+            self.master,
             self.photos,
             default_mode=default_mode,
             default_width=self.penwidth
@@ -59,7 +61,7 @@ class App(tk.Frame):
         
         # CanvasView
         self.canvasview = CanvasView(
-            self,
+            self.master,
             color_bg=self.color_bg,
             width=canvas_width,
             height=canvas_height
@@ -125,6 +127,7 @@ class App(tk.Frame):
         config.set('General', 'polygon_sides', str(sides))
         config.save()
 
+
     def _on_mode_change(self, mode):
         """Callback cuando cambia el modo de dibujo desde la toolbar"""
         log.info(f"Modo cambiado a: {mode}")
@@ -132,6 +135,7 @@ class App(tk.Frame):
         self.canvasview._desseleccionar_todo()
         config.set('General', 'default_mode', mode)
         config.save()
+        self.statusbar.set_text(f"Mode: {mode}")
     
     def _on_width_change(self, width):
         """callback cuando cambia el grosor del pincel"""

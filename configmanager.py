@@ -41,7 +41,7 @@ class ConfigManager:
         }
         
         self.config['Pen'] = {
-            'default_width': '5.0',
+            'default_width': '2.5',
             'default_color_fg': 'black',
             'default_color_bg': 'white',
             'default_color_fill': ''
@@ -113,7 +113,8 @@ class ConfigManager:
         return {
             'width': self.getfloat('Pen', 'default_width', 1.0),
             'color_fg': self.get('Pen', 'default_color_fg', 'black'),
-            'color_bg': self.get('Pen', 'default_color_bg', 'white')
+            'color_bg': self.get('Pen', 'default_color_bg', 'white'),
+            'color_fill': self.get('Pen', 'default_color_fill', '')
         }
     
     def save_last_file(self, filepath):
