@@ -1753,7 +1753,7 @@ class CanvasView(tk.Canvas):
         shape = self.shape_seleccionada
         if not isinstance(shape, Arco): return
         
-        shape.actualizar_angulo_inicio_desde_punto(Punto(e.x, e.y))
+        shape.actualizar_punto_inicio(Punto(e.x, e.y))
         shape.actualizar_en_canvas(self)
         self._actualizar_handles_arco()
 
@@ -1762,7 +1762,7 @@ class CanvasView(tk.Canvas):
         shape = self.shape_seleccionada
         if not isinstance(shape, Arco): return
         
-        shape.actualizar_extension_desde_punto(Punto(e.x, e.y))
+        shape.actualizar_punto_final(Punto(e.x, e.y))
         shape.actualizar_en_canvas(self)
         self._actualizar_handles_arco()
 
