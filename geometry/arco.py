@@ -108,20 +108,28 @@ class Arco(Shape):
         return Punto(x, y)
 
     def actualizar_punto_inicio(self, nuevo_punto: Punto):
-        """Recalcula radio y ángulo de inicio basándose en la nueva posición del punto"""
-        # Nueva distancia al centro = nuevo radio
+        """Recalcula radio y ángulo de inicio, manteniendo el ángulo final absoluto"""
+        # Calcular ángulo final absoluto ANTES de cambiar nada
+        angulo_final_abs = self.angulo_inicio + self.extension
+        
+        # Nuevo radio (distancia al centro)
         self.radio = self.centro.distancia(nuevo_punto)
         
         # Nuevo ángulo de inicio
         dx = nuevo_punto.x - self.centro.x
-        dy = -(nuevo_punto.y - self.centro.y)  # Negar Y por eje invertido
+        dy = -(nuevo_punto.y - self.centro.y)
         self.angulo_inicio = math.degrees(math.atan2(dy, dx))
+        
+        # Recalcular extensión basándose en el ángulo final absoluto
+        self.extension = angulo_final_abs - self.angulo_inicio
         
         # La extensión se mantiene (el punto final no cambia)
 
     def actualizar_punto_final(self, nuevo_punto: Punto):
-        """Recalcula radio y extensión basándose en la nueva posición del punto final"""
-        # Nueva distancia al centro = nuevo radio
+        """Recalcula radio y ángulo final, manteniendo el ángulo inicial absoluto"""
+        # El ángulo inicial se mantiene (no lo tocamos)
+        
+        # Nuevo radio (distancia al centro)
         self.radio = self.centro.distancia(nuevo_punto)
         
         # Nuevo ángulo final
