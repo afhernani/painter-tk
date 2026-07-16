@@ -9,7 +9,7 @@ from geometry.line import Linea
 from geometry.circle import Circulo
 from geometry.rectangle import Rectangulo
 from geometry.ellipse import Elipse
-from geometry.arc import Arco
+from geometry.arco import Arco
 from geometry.polyline import Polyline
 from geometry.polygon import Poligono
 from storage import save_project, load_project
@@ -57,6 +57,14 @@ class CanvasView(tk.Canvas):
         # Estado para modo Elipse (click → move → click)
         self.elipse_centro = None
         self.elipse_preview_id = None
+        # Estado para modo Arco (3 clics: centro → p1 → p2)
+        self.arco_centro = None
+        self.arco_p1 = None
+        self.arco_radio = 0.0
+        self.arco_angulo_inicio = 0.0
+        self.arco_estado = 0  # 0: esperando centro, 1: esperando p1, 2: esperando p2
+        self.arco_preview_id = None
+
         self.lin_x = None
         self.lin_y = None
         self.old_x = None
@@ -206,6 +214,43 @@ class CanvasView(tk.Canvas):
             y2 = self.elipse_centro.y + ry
             self.coords(self.elipse_preview_id, x1, y1, x2, y2)
             return
+        
+        # Arco
+        # Preview de Arco - Etapa 1: mostrando radio hasta el ratón
+        if mode == 'A' and self.arco_estado == 1:
+            if self.arco_preview_id is not None:
+                self.delete(self.arco_preview_id)
+            r = self.arco_centro.distancia(Punto(e.x, e.y))
+            self.arco_preview_id = self.create_oval(
+                self.arco_centro.x - r, self.arco_centro.y - r,
+                self.arco_centro.x + r, self.arco_centro.y + r,
+                outline='gray', dash=(4, 4)
+            )
+            return
+
+        # Preview de Arco - Etapa 2: mostrando el arco hasta el ángulo del ratón
+        if mode == 'A' and self.arco_estado == 2:
+            if self.arco_preview_id is not None:
+                self.delete(self.arco_preview_id)
+            angulo_actual = math.degrees(math.atan2(
+                e.y - self.arco_centro.y,
+                e.x - self.arco_centro.x
+            ))
+            extension = angulo_actual - self.arco_angulo_inicio
+            bbox = [
+                self.arco_centro.x - self.arco_radio, self.arco_centro.y - self.arco_radio,
+                self.arco_centro.x + self.arco_radio, self.arco_centro.y + self.arco_radio
+            ]
+            self.arco_preview_id = self.create_arc(
+                *bbox,
+                start=self.arco_angulo_inicio,
+                extent=extension,
+                style=tk.ARC,
+                outline='gray',
+                width=2
+            )
+            return
+
 
     # ================================================================
     # PRESS
@@ -324,13 +369,32 @@ class CanvasView(tk.Canvas):
                 self._finalizar_elipse(e.x, e.y)
             return
 
+        # ── MODO ARCO: 3 clics (centro → p1 → p2) ──
+        if mode == 'A':
+            if self.arco_estado == 0:
+                # Primer clic: centro
+                self.arco_centro = Punto(e.x, e.y)
+                self.arco_estado = 1
+                self._set_status("Arco: centro establecido. Click para el punto inicial (radio + ángulo).")
+            elif self.arco_estado == 1:
+                # Segundo clic: punto inicial (define radio y ángulo de inicio)
+                self.arco_p1 = Punto(e.x, e.y)
+                self.arco_radio = self.arco_centro.distancia(self.arco_p1)
+                self.arco_angulo_inicio = math.degrees(math.atan2(
+                    self.arco_p1.y - self.arco_centro.y,
+                    self.arco_p1.x - self.arco_centro.x
+                ))
+                self.arco_estado = 2
+                self._set_status("Arco: punto inicial establecido. Click para el punto final.")
+            elif self.arco_estado == 2:
+                # Tercer clic: punto final → crear arco
+                self._finalizar_arco(e.x, e.y)
+            return
 
         if mode == 'P':
             self.puntos_trazo = [Punto(e.x, e.y)]
             self.old_x, self.old_y = e.x, e.y   # Inicializar para el primer segmento
-        
-        elif mode == 'A':
-            self.linea = self.create_arc(self.lin_x, self.lin_y, e.x, e.y)
+            return
 
     def _on_right_click(self, e):
         """Click derecho: finaliza la polyline en progreso"""
@@ -357,23 +421,11 @@ class CanvasView(tk.Canvas):
             self._motion_select_mode(e)
             return
         
-        if mode in ('R', 'E'):
+        if mode in ('R', 'E', 'A'):
             return
 
         width = self._get_width()
         color = self._get_color_fg()
-
-        # ── MODO LÍNEA: actualizar preview ──
-        # if mode == 'L' and self.linea_preview is not None:
-        #     self.coords(self.linea_preview, self.linea_p1.x, self.linea_p1.y, e.x, e.y)
-        #     return
-
-        # ── MODO POLYLINE (Pl): la preview persigue al cursor ──
-        # if mode == 'Pl' and self.polyline_puntos and self.polyline_preview_id is not None:
-        #     ultimo_punto = self.polyline_puntos[-1]
-        #     self.coords(self.polyline_preview_id, ultimo_punto.x, ultimo_punto.y, e.x, e.y)
-        #     return
-
 
         if mode == 'P':
             if self.old_x is not None and self.old_y is not None:
@@ -419,7 +471,7 @@ class CanvasView(tk.Canvas):
         if mode == 'Pl':
             return
 
-        if mode in ('R', 'E'):
+        if mode in ('R', 'E', 'A'):
             return
         
         width = self._get_width()
@@ -597,34 +649,7 @@ class CanvasView(tk.Canvas):
         if self.dragging_handle and self.shape_seleccionada is None:
             self.dragging_handle = None
             return
-        # if self.dragging_handle:
-        #     # Handles de línea
-        #     if self.dragging_handle in ('start', 'end'):
-        #         self._mover_handle_linea(e)
-        #     # Handles de polyline
-        #     elif self.dragging_handle.startswith('polyline_'):
-        #         self._mover_handle_polyline(e)
-        #     elif self.dragging_handle == 'poligono_centro':
-        #         self._mover_poligono_centro(e)
-        #     elif self.dragging_handle.startswith('poligono_vertice_'):
-        #         self._mover_vertice_poligono(e)
-        #     elif self.dragging_handle.startswith('poligono_segmento_'):
-        #         dx = e.x - self.drag_start_x
-        #         dy = e.y - self.drag_start_y
-                
-        #         # Usar self.shape_seleccionada en lugar de shape
-        #         if self.shape_seleccionada is not None:
-        #             self.shape_seleccionada.mover(dx, dy)
-        #             self.shape_seleccionada.actualizar_en_canvas(self)
-        #             self._actualizar_handles_poligono()
-                
-        #         self.drag_start_x = e.x
-        #         self.drag_start_y = e.y
-        #     # Handles circulo
-        #     elif self.dragging_handle == 'circulo_centro':  # el centro
-        #         self._mover_circulo_centro(e)
-        #     elif self.dragging_handle == 'circulo_perimetro':  # en perimetro
-        #         self._mover_circulo_perimetro(e)
+        
         if self.dragging_handle:
             if self.dragging_handle in ('start', 'end'):
                 self._mover_handle_linea(e)
@@ -662,12 +687,6 @@ class CanvasView(tk.Canvas):
             self.shape_seleccionada.mover(dx, dy)
             self.shape_seleccionada.actualizar_en_canvas(self)
             
-            # Mover handles (manejo tanto ids simples como tuplas)
-            # handles_a_mover = [
-            #     self.handle_start, self.handle_end,
-            #     self.handle_nw, self.handle_ne,
-            #     self.handle_sw, self.handle_se
-            # ] + self.handles_polyline  # Incluir handles de polyline
             handles_a_mover = [
                 self.handle_start, self.handle_end,
                 self.handle_nw, self.handle_ne,
@@ -1019,6 +1038,7 @@ class CanvasView(tk.Canvas):
             self._deseleccionar_todo()
             self._set_status(f"Objeto eliminado: {shape}")
             log.info(f"Shape eliminada: {shape}")
+    
     # -------------------------
     # Línea
     # -------------------------
@@ -1047,20 +1067,9 @@ class CanvasView(tk.Canvas):
         self._set_status("Línea creada. Click para otra línea o cambia de modo.")
         self._save_state()
 
-    # def _cancelar_linea(self):
-    #     """
-    #     Cancela la línea en progreso (se llama con Escape)
-    #     """
-    #     if self.linea_preview is not None:
-    #         self.delete(self.linea_preview)
-    #         self.linea_preview = None
-    #         self.linea_p1 = None
-    #         self._set_status("Línea cancelada")
-
     # -----------------
     # polyline
     # -------------------
-
     def _añadir_punto_polyline(self, x, y):
         """Añade un punto a la polyline en progreso"""
         nuevo_punto = Punto(x, y)
@@ -1216,7 +1225,10 @@ class CanvasView(tk.Canvas):
             self.elipse_centro = None
             self._set_status("Elipse cancelada")
             return
-
+        elif mode == 'A':
+            self._reset_arco_estado()
+            self._set_status("Arco cancelado")
+            return
 
     # ----------------
     # Poligono
@@ -1592,6 +1604,64 @@ class CanvasView(tk.Canvas):
             self.coords(self.handle_circulo_perimetro,
                         punto_perimetro.x - 6, punto_perimetro.y - 6,
                         punto_perimetro.x + 6, punto_perimetro.y + 6)
+
+    # -------------
+    # Arco
+    #--------------
+    def _finalizar_arco(self, x, y):
+        """Crea el arco definitivo tras el tercer clic"""
+        # Borrar preview
+        if self.arco_preview_id is not None:
+            self.delete(self.arco_preview_id)
+            self.arco_preview_id = None
+        
+        # Calcular ángulo final
+        p2 = Punto(x, y)
+        angulo_final = math.degrees(math.atan2(
+            p2.y - self.arco_centro.y,
+            p2.x - self.arco_centro.x
+        ))
+        extension = angulo_final - self.arco_angulo_inicio
+        
+        # Evitar arcos de tamaño 0
+        if self.arco_radio < 2 or abs(extension) < 1:
+            self._reset_arco_estado()
+            return
+        
+        width = self._get_width()
+        color = self._get_color_fg()
+        relleno = config.get('Pen', 'default_color_fill', '')
+        
+        # Crear la figura del modelo
+        shape = Arco(
+            centro=self.arco_centro,
+            radio=self.arco_radio,
+            angulo_inicio=self.arco_angulo_inicio,
+            extension=extension,
+            color=color,
+            grosor=width,
+            relleno=relleno
+        )
+        shape._tag = 'Arc'
+        shape.dibujar_en(self)
+        self.shapes.append(shape)
+        
+        log.info(f"Arco creado: {shape}")
+        self._reset_arco_estado()
+        self._set_status("Arco creado")
+        self._save_state()
+
+    def _reset_arco_estado(self):
+        """Resetea todas las variables del estado del arco"""
+        self.arco_centro = None
+        self.arco_p1 = None
+        self.arco_radio = 0.0
+        self.arco_angulo_inicio = 0.0
+        self.arco_estado = 0
+        if self.arco_preview_id is not None:
+            self.delete(self.arco_preview_id)
+            self.arco_preview_id = None
+
 
     # ------------------
     # Metodos auxiliar

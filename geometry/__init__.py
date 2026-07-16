@@ -13,7 +13,7 @@ from .line import Linea
 from .circle import Circulo
 from .rectangle import Rectangulo
 from .ellipse import Elipse
-from .arc import Arco
+from .arco import Arco
 from .polyline import Polyline
 from .pointshape import PointShape
 from .polygon import Poligono
