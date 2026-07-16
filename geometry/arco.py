@@ -37,6 +37,25 @@ class Arco(Shape):
         )
         return self._canvas_id
     
+    def bbox(self):
+        """Devuelve el bounding box del arco (x1, y1, x2, y2)"""
+        return (
+            self.centro.x - self.radio, 
+            self.centro.y - self.radio,
+            self.centro.x + self.radio, 
+            self.centro.y + self.radio
+        )
+    
+    def resaltar(self, canvas, color='red'):
+        """Resalta el arco cambiando el color del contorno"""
+        if self._canvas_id is not None:
+            canvas.itemconfig(self._canvas_id, outline=color, width=self.grosor + 1)
+    
+    def restaurar(self, canvas):
+        """Restaura el color original del arco"""
+        if self._canvas_id is not None:
+            canvas.itemconfig(self._canvas_id, outline=self.color, width=self.grosor)
+    
     def dibujar_en_pil(self, draw):
         """Dibuja el arco en una imagen PIL"""
         bbox = [
