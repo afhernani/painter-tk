@@ -86,6 +86,10 @@ class CanvasView(tk.Canvas):
         self.handle_elipse_centro = None
         self.handle_elipse_eje_x = None
         self.handle_elipse_eje_y = None
+        # Handles del Arco
+        self.handle_arco_centro = None
+        self.handle_arco_inicio = None
+        self.handle_arco_final = None
 
         self.dragging_handle = None
         self.dragging_shape = False
@@ -575,6 +579,17 @@ class CanvasView(tk.Canvas):
             if 'handle_elipse_eje_y' in tags:
                 self.dragging_handle = 'elipse_eje_y'
                 return
+            
+            # Handles de Arco
+            if 'handle_arco_centro' in tags:
+                self.dragging_handle = 'arco_centro'
+                return
+            if 'handle_arco_inicio' in tags:
+                self.dragging_handle = 'arco_inicio'
+                return
+            if 'handle_arco_final' in tags:
+                self.dragging_handle = 'arco_final'
+                return
 
             # Handles de bbox
             if 'handle_nw' in tags:
@@ -634,9 +649,15 @@ class CanvasView(tk.Canvas):
                     # Guardar posición inicial para calcular delta
                     self.drag_start_x = e.x
                     self.drag_start_y = e.y
-                    return
-            return
-        
+                return
+            
+            # Si no es un handle, pero es un arco, permitir moverlo desde el perímetro
+            if isinstance(shape_candidata, Arco):
+                self.dragging_shape = True
+                self.drag_start_x = e.x
+                self.drag_start_y = e.y
+                self._seleccionar_shape(shape_candidata)
+                return
     
         log.info("Click en vacio, deseleccionar")
         self._deseleccionar_todo()
@@ -676,6 +697,13 @@ class CanvasView(tk.Canvas):
                 self._mover_elipse_eje_x(e)
             elif self.dragging_handle == 'elipse_eje_y':
                 self._mover_elipse_eje_y(e)
+            # handles de arco.
+            elif self.dragging_handle == 'arco_centro':
+                self._mover_arco_centro(e)
+            elif self.dragging_handle == 'arco_inicio':
+                self._mover_arco_inicio(e)
+            elif self.dragging_handle == 'arco_final':
+                self._mover_arco_final(e)
             # Handles de bbox
             elif self.dragging_handle in ('nw', 'ne', 'sw', 'se'):
                 self._redimensionar_bbox(e)
@@ -694,7 +722,8 @@ class CanvasView(tk.Canvas):
                 self.handle_nw, self.handle_ne,
                 self.handle_sw, self.handle_se,
                 self.handle_circulo_centro, self.handle_circulo_perimetro,
-                self.handle_elipse_centro, self.handle_elipse_eje_x, self.handle_elipse_eje_y
+                self.handle_elipse_centro, self.handle_elipse_eje_x, self.handle_elipse_eje_y,
+                self.handle_arco_centro, self.handle_arco_inicio, self.handle_arco_final
             ] + getattr(self, 'handles_polyline', []) + getattr(self, 'handles_poligono', [])
             
             for h in handles_a_mover:
@@ -755,6 +784,8 @@ class CanvasView(tk.Canvas):
             self._mostrar_handles_circulo(shape)
         elif isinstance(shape, Elipse):  # Manejo de Elipse.
             self._mostrar_handles_elipse(shape)
+        elif isinstance(shape, Arco): # manejo de arco
+            self._mostrar_handles_arco(shape)
         elif isinstance(shape, PointShape):
             pass # PointShape no tiene manejadores
         else:
@@ -1016,6 +1047,9 @@ class CanvasView(tk.Canvas):
         self.handle_elipse_centro = None
         self.handle_elipse_eje_x = None
         self.handle_elipse_eje_y = None
+        self.handle_arco_centro = None
+        self.handle_arco_inicio = None
+        self.handle_arco_final = None
 
         log.info(f"_deseleccionar_todo: --- limpiando entorno -----")
 
@@ -1665,6 +1699,95 @@ class CanvasView(tk.Canvas):
             self.delete(self.arco_preview_id)
             self.arco_preview_id = None
 
+    def _mostrar_handles_arco(self, shape: Arco):
+        """Muestra handles en el centro y en los extremos del arco"""
+        log.info(f"Mostrando handles del arco: centro={shape.centro}, inicio={shape.angulo_inicio}°, ext={shape.extension}°")
+        
+        # Limpiar handles anteriores
+        self.delete('handle_arco_centro')
+        self.delete('handle_arco_inicio')
+        self.delete('handle_arco_final')
+        
+        # 1. Handle del centro (Verde)
+        self.handle_arco_centro = self.create_oval(
+            shape.centro.x - 6, shape.centro.y - 6,
+            shape.centro.x + 6, shape.centro.y + 6,
+            fill='green', outline='white', width=2,
+            tags=('handle', 'handle_arco_centro')
+        )
+        
+        # 2. Handle del punto inicial (Azul)
+        p_inicio = shape.obtener_punto_inicio()
+        self.handle_arco_inicio = self.create_oval(
+            p_inicio.x - 6, p_inicio.y - 6,
+            p_inicio.x + 6, p_inicio.y + 6,
+            fill='blue', outline='white', width=2,
+            tags=('handle', 'handle_arco_inicio')
+        )
+        
+        # 3. Handle del punto final (Azul)
+        p_final = shape.obtener_punto_final()
+        self.handle_arco_final = self.create_oval(
+            p_final.x - 6, p_final.y - 6,
+            p_final.x + 6, p_final.y + 6,
+            fill='blue', outline='white', width=2,
+            tags=('handle', 'handle_arco_final')
+        )
+        
+        # Traer al frente
+        self.tag_raise('handle')
+
+    def _mover_arco_centro(self, e):
+        """Mueve el centro del arco (traslación)"""
+        shape = self.shape_seleccionada
+        if not isinstance(shape, Arco): return
+        
+        dx = e.x - shape.centro.x
+        dy = e.y - shape.centro.y
+        shape.mover(dx, dy)
+        shape.actualizar_en_canvas(self)
+        self._actualizar_handles_arco()
+
+    def _mover_arco_inicio(self, e):
+        """Modifica el ángulo de inicio del arco"""
+        shape = self.shape_seleccionada
+        if not isinstance(shape, Arco): return
+        
+        shape.actualizar_angulo_inicio_desde_punto(Punto(e.x, e.y))
+        shape.actualizar_en_canvas(self)
+        self._actualizar_handles_arco()
+
+    def _mover_arco_final(self, e):
+        """Modifica la extensión del arco"""
+        shape = self.shape_seleccionada
+        if not isinstance(shape, Arco): return
+        
+        shape.actualizar_extension_desde_punto(Punto(e.x, e.y))
+        shape.actualizar_en_canvas(self)
+        self._actualizar_handles_arco()
+
+    def _actualizar_handles_arco(self):
+        """Reposiciona los handles del arco seleccionado"""
+        shape = self.shape_seleccionada
+        if not isinstance(shape, Arco): return
+        
+        # Actualizar centro
+        if self.handle_arco_centro:
+            self.coords(self.handle_arco_centro,
+                        shape.centro.x - 6, shape.centro.y - 6,
+                        shape.centro.x + 6, shape.centro.y + 6)
+        
+        # Actualizar punto inicial
+        if self.handle_arco_inicio:
+            p = shape.obtener_punto_inicio()
+            self.coords(self.handle_arco_inicio,
+                        p.x - 6, p.y - 6, p.x + 6, p.y + 6)
+        
+        # Actualizar punto final
+        if self.handle_arco_final:
+            p = shape.obtener_punto_final()
+            self.coords(self.handle_arco_final,
+                        p.x - 6, p.y - 6, p.x + 6, p.y + 6)
 
     # ------------------
     # Metodos auxiliar
@@ -1695,62 +1818,7 @@ class CanvasView(tk.Canvas):
         self.contador_trazos = 0
         self._deseleccionar_todo()
         log.info("Canvas y modelo limpiados")
-
-    # def load_from_svg(self, filepath):
-    #     try:
-    #         from svgcanvas import loadSvg
-    #     except ImportError:
-    #         log.warning("svgcanvas no disponible")
-    #         return 0
-    #     self.delete('all')
-    #     self.shapes.clear()
-    #     self.trazos.clear()
-    #     self.contador_trazos = 0
-    #     self._deseleccionar_todo()
-    #     try:
-    #         canvas_ref, ids_creados = loadSvg(filepath, self)
-    #         color = self._get_color_fg()
-    #         for item_id in ids_creados:
-    #             item_type = self.type(item_id)
-    #             tags = self.gettags(item_id)
-    #             coords = self.coords(item_id)
-    #             shape = None
-    #             if 'Line' in tags and item_type == 'line':
-    #                 if len(coords) >= 4:
-    #                     shape = Linea(Punto(coords[0], coords[1]),
-    #                                   Punto(coords[2], coords[3]), color=color)
-    #                     shape._tag = 'Line'
-    #             elif 'Ellipse' in tags and item_type == 'elipse':
-    #                 if len(coords) >= 4:
-    #                     cx = (coords[0] + coords[2]) / 2
-    #                     cy = (coords[1] + coords[3]) / 2
-    #                     rx = abs(coords[2] - coords[0]) / 2
-    #                     ry = abs(coords[3] - coords[1]) / 2
-    #                     shape = Elipse(Punto(cx, cy), rx, ry, color=color)
-    #                     shape._tag = 'Ellipse'
-    #             elif 'Rect' in tags and item_type == 'rectangle':
-    #                 if len(coords) >= 4:
-    #                     shape = Rectangulo(Punto(coords[0], coords[1]),
-    #                                        Punto(coords[2], coords[3]), color=color)
-    #                     shape._tag = 'Rect'
-    #             if shape is not None:
-    #                 shape.canvas_id = item_id
-    #                 self.shapes.append(shape)
-    #         self._set_status(f'{filepath} cargado ({len(self.shapes)} shapes)')
-    #         return len(self.shapes)
-    #     except Exception as ex:
-    #         log.error(f"Error cargando SVG: {ex}")
-    #         return 0
-
-    # def save_to_svg(self, filepath):
-    #     try:
-    #         from canvasvg import saveall
-    #         saveall(filename=filepath, canvas=self)
-    #         self._set_status(f"Guardado: {filepath}")
-    #     except ImportError:
-    #         log.warning("canvasvg no disponible")
-    #         self._set_status("Error: canvasvg no disponible")
-    
+       
     def save_to_json(self, filepath):
         """Guarda el proyecto actual en JSON"""
         save_project(filepath, self.shapes)

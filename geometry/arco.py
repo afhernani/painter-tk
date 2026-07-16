@@ -86,6 +86,41 @@ class Arco(Shape):
             "relleno": self.relleno
         }
     
+    def obtener_punto_centro(self) -> Punto:
+        """Devuelve el centro del arco"""
+        return self.centro
+
+    def obtener_punto_inicio(self) -> Punto:
+        """Devuelve el punto en el borde donde empieza el arco"""
+        # Convertir grados a radianes
+        rad = math.radians(self.angulo_inicio)
+        # Tkinter usa eje Y invertido, así que usamos -sin para compensar
+        x = self.centro.x + self.radio * math.cos(rad)
+        y = self.centro.y - self.radio * math.sin(rad)
+        return Punto(x, y)
+
+    def obtener_punto_final(self) -> Punto:
+        """Devuelve el punto en el borde donde termina el arco"""
+        angulo_fin = self.angulo_inicio + self.extension
+        rad = math.radians(angulo_fin)
+        x = self.centro.x + self.radio * math.cos(rad)
+        y = self.centro.y - self.radio * math.sin(rad)
+        return Punto(x, y)
+
+    def actualizar_angulo_inicio_desde_punto(self, nuevo_punto: Punto):
+        """Recalcula el ángulo de inicio basado en la posición del punto"""
+        dx = nuevo_punto.x - self.centro.x
+        dy = -(nuevo_punto.y - self.centro.y)  # Negar Y por eje invertido
+        self.angulo_inicio = math.degrees(math.atan2(dy, dx))
+
+    def actualizar_extension_desde_punto(self, nuevo_punto: Punto):
+        """Recalcula la extensión basada en la posición del punto final"""
+        dx = nuevo_punto.x - self.centro.x
+        dy = -(nuevo_punto.y - self.centro.y)
+        angulo_final = math.degrees(math.atan2(dy, dx))
+        self.extension = angulo_final - self.angulo_inicio
+
+
     @classmethod
     def from_dict(cls, data: dict) -> 'Arco':
         centro = Punto.from_dict(data["centro"])
