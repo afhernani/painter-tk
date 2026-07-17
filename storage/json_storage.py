@@ -106,4 +106,8 @@ def _reconstruir_puntos(item):
             for p in item["puntos"]
         ]
     
+    # Texto 
+    if "posicion" in item and isinstance(item["posicion"], dict):
+        item["posicion"] = Punto.from_dict(item["posicion"])
+    
     return item

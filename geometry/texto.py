@@ -103,7 +103,13 @@ class Texto(Shape):
     @classmethod
     def from_dict(cls, data: dict) -> 'Texto':
         """Deserializa desde diccionario JSON"""
-        posicion = Punto.from_dict(data["posicion"])
+        # Convertir el diccionario de posicion a objeto Punto
+        posicion_data = data.get("posicion", {"x": 0, "y": 0})
+        if isinstance(posicion_data, dict):
+            posicion = Punto.from_dict(posicion_data)
+        else:
+            posicion = posicion_data  # Ya es un Punto
+        
         return cls(
             posicion=posicion,
             texto=data.get("texto", "Texto"),

@@ -24,8 +24,9 @@ class Punto:
         return {"x": self.x, "y": self.y}
 
     @classmethod
-    def from_dict(cls, data):
-        return cls(data["x"], data["y"])
+    def from_dict(cls, data: dict) -> 'Punto':
+        """Crear un Punto desde un diccionario"""
+        return cls(x=data.get("x",0), y=data.get("y",0))
     
     def __repr__(self):
         return f"Punto({self.x}, {self.y})"
