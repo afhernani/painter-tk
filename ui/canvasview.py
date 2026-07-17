@@ -82,6 +82,9 @@ class CanvasView(tk.Canvas):
         self.polyline_segmento_drag = None
         self.handle_circulo_centro = None  # Handle verde del centro
         self.handle_circulo_perimetro = None  # Handle azul del perímetro
+        # Handles del Polígono
+        self.handle_poligono_centro = None  # 
+        self.handles_poligono = []
         # manejadores elipse -ovalo
         self.handle_elipse_centro = None
         self.handle_elipse_eje_x = None
@@ -719,7 +722,8 @@ class CanvasView(tk.Canvas):
                 self.handle_sw, self.handle_se,
                 self.handle_circulo_centro, self.handle_circulo_perimetro,
                 self.handle_elipse_centro, self.handle_elipse_eje_x, self.handle_elipse_eje_y,
-                self.handle_arco_centro, self.handle_arco_inicio, self.handle_arco_final
+                self.handle_arco_centro, self.handle_arco_inicio, self.handle_arco_final, 
+                self.handle_poligono_centro
             ] + getattr(self, 'handles_polyline', []) + getattr(self, 'handles_poligono', [])
             
             for h in handles_a_mover:
@@ -989,21 +993,17 @@ class CanvasView(tk.Canvas):
             for h in self.handles_poligono:
                 if h is not None:
                     self.delete(h)
-
         self.handles_poligono = []
         
-        # Handle del centro (color diferente, ej: verde)
-        handle_centro = self.create_oval(
+        # Handle del centro (guardado en su propia variable, no en la lista)
+        self.handle_poligono_centro = self.create_oval(
             shape.centro.x - 6, shape.centro.y - 6,
             shape.centro.x + 6, shape.centro.y + 6,
             fill='green', outline='white', width=2,
             tags=('handle', 'handle_poligono_centro', f'fig_{shape._canvas_id}')
         )
-        self.handles_poligono_centro = handle_centro # guarda en la variable correcta.
-        #self.handles_poligono.append(handle)
-        #self.handles_poligono.append(('centro', handle_centro))
         
-        # Handles de vértices (color azul)
+        # Handles de vértices (guardados en la lista)
         vertices = shape.obtener_vertices()
         for i, v in enumerate(vertices):
             handle = self.create_oval(
@@ -1012,7 +1012,7 @@ class CanvasView(tk.Canvas):
                 tags=('handle', f'handle_poligono_vertice_{i}', f'fig_{shape._canvas_id}')
             )
             self.handles_poligono.append(handle)
-        
+            
         self.tag_raise('handle')
         log.info(f"Handles polígono creados: centro={self.handle_poligono_centro}, {len(self.handles_poligono)} vértices")
     # ================================================================
@@ -1053,11 +1053,16 @@ class CanvasView(tk.Canvas):
         for h in getattr(self, 'handles_polyline', []):
             if isinstance(h, tuple): self.delete(h[1])
             else: self.delete(h)
-            
         # Borrar handles de polígono
+        # Borrar handles de polígono
+        if hasattr(self, 'handle_poligono_centro') and self.handle_poligono_centro:
+            self.delete(self.handle_poligono_centro)
+            self.handle_poligono_centro = None
+            
         for h in getattr(self, 'handles_poligono', []):
-            if isinstance(h, tuple): self.delete(h[1])
-            else: self.delete(h)
+            if h is not None:
+                self.delete(h)
+        self.handles_poligono = []
 
         # 3. Como red de seguridad, intentar borrar por tag también
         self.delete('handle')
@@ -1070,6 +1075,7 @@ class CanvasView(tk.Canvas):
         self.handle_ne = None
         self.handle_sw = None
         self.handle_se = None
+        self.handle_poligono_centro = None
         self.handles_poligono = []  # limpiar handles de poligono
         self.handles_polyline = []  # Limpiar handles de polyline
         self.polyline_segmento_drag = None  # Limpiar segmento
@@ -1392,16 +1398,17 @@ class CanvasView(tk.Canvas):
         shape = self.shape_seleccionada
         if not isinstance(shape, Poligono): return
         
-        # Actualizar handle centro
-        self.coords(self.handles_poligono[0][1],
-                    shape.centro.x - 6, shape.centro.y - 6,
-                    shape.centro.x + 6, shape.centro.y + 6)
+        # 1. Actualizar handle centro
+        if self.handle_poligono_centro:
+            self.coords(self.handle_poligono_centro,
+                        shape.centro.x - 6, shape.centro.y - 6,
+                        shape.centro.x + 6, shape.centro.y + 6)
         
-        # Actualizar handles vértices
+        # 2. Actualizar handles vértices
         vertices = shape.obtener_vertices()
         for i, v in enumerate(vertices):
-            if i + 1 < len(self.handles_poligono):
-                self.coords(self.handles_poligono[i + 1][1],
+            if i < len(self.handles_poligono):
+                self.coords(self.handles_poligono[i],
                             v.x - 6, v.y - 6, v.x + 6, v.y + 6)
 
     def _detectar_segmento_poligono(self, x, y, shape: Poligono):
@@ -1560,8 +1567,7 @@ class CanvasView(tk.Canvas):
 
     def _mostrar_handles_elipse(self, shape: Elipse):
         """Muestra handles en el centro y en los ejes X e Y de la elipse"""
-        log.info(f"Mostrando handles de la elipse: centro={shape.centro}, rx={shape.radio_x}, ry={shape.radio_y}")
-        
+        log.info(f"Handles elipse creados: centro={self.handle_elipse_centro}, eje_x={self.handle_elipse_eje_x}, eje_y={self.handle_elipse_eje_y}")
         # Limpiar handles anteriores
         self.delete('handle_elipse_centro')
         self.delete('handle_elipse_eje_x')
@@ -1593,7 +1599,7 @@ class CanvasView(tk.Canvas):
         
         # Traer al frente para que sean clicables
         self.tag_raise('handle')
-        log.info(f"Handles elipse creados: centro={self.handle_elipse_centro}, eje_x={self.handle_elipse_eje__x}, eje_y={self.handle_elipse_eje_y}")
+        log.info(f"Handles elipse creados: centro={self.handle_elipse_centro}, eje_x={self.handle_elipse_eje_x}, eje_y={self.handle_elipse_eje_y}")
 
     def _mover_elipse_centro(self, e):
         """Mueve el centro de la elipse (traslación)"""
