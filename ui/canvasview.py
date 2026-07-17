@@ -426,7 +426,7 @@ class CanvasView(tk.Canvas):
             if texto_ingresado:  # Si el usuario no canceló
                 width = self._get_width()
                 color = self._get_color_fg()
-                tamaño = int(width * 4)  # Escalar tamaño basado en grosor
+                tamaño = int(max(12, width*4))  # Escalar tamaño basado en grosor
                 
                 shape = Texto(
                     posicion=Punto(e.x, e.y),
@@ -1371,9 +1371,16 @@ class CanvasView(tk.Canvas):
             self.elipse_centro = None
             self._set_status("Elipse cancelada")
             return
-        elif mode == 'A':
+        if mode == 'A':
             self._reset_arco_estado()
             self._set_status("Arco cancelado")
+            return
+
+        if mode == 'T':
+            if self.texto_preview_id is not None:
+                self.delete(self.texto_preview_id)
+                self.texto_preview_id = None
+            self._set_status("Texto cancelado")
             return
 
     # ----------------
@@ -1930,6 +1937,42 @@ class CanvasView(tk.Canvas):
             p = shape.obtener_punto_final()
             self.coords(self.handle_arco_final,
                         p.x - 6, p.y - 6, p.x + 6, p.y + 6)
+
+    # ---------------
+    # Texto Manejo
+    # ---------------
+    def _mostrar_handles_texto(self, shape: Texto):
+        """Muestra handles de bbox alrededor del texto"""
+        # Obtener bbox real del canvas
+        if shape._canvas_id:
+            bbox = self.bbox(shape._canvas_id)
+            if bbox:
+                x1, y1, x2, y2 = bbox
+                self.delete('handle')
+                
+                self.handle_nw = self.create_oval(
+                    x1 - 6, y1 - 6, x1 + 6, y1 + 6,
+                    fill='blue', outline='white', width=2,
+                    tags=('handle', 'handle_nw', f'fig_{shape._canvas_id}')
+                )
+                self.handle_ne = self.create_oval(
+                    x2 - 6, y1 - 6, x2 + 6, y1 + 6,
+                    fill='blue', outline='white', width=2,
+                    tags=('handle', 'handle_ne', f'fig_{shape._canvas_id}')
+                )
+                self.handle_sw = self.create_oval(
+                    x1 - 6, y2 - 6, x1 + 6, y2 + 6,
+                    fill='blue', outline='white', width=2,
+                    tags=('handle', 'handle_sw', f'fig_{shape._canvas_id}')
+                )
+                self.handle_se = self.create_oval(
+                    x2 - 6, y2 - 6, x2 + 6, y2 + 6,
+                    fill='blue', outline='white', width=2,
+                    tags=('handle', 'handle_se', f'fig_{shape._canvas_id}')
+                )
+                
+                self.tag_raise('handle')
+                log.info(f"Handles texto creados en bbox: {bbox}")
 
     # ------------------
     # Metodos auxiliar
