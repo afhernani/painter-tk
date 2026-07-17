@@ -30,7 +30,7 @@ class Poligono(Shape):
         angulo_paso = 2 * math.pi / self.lados
         
         for i in range(self.lados):
-            theta = i * angulo_paso + self.rotacion  # ✅ Usar self.rotacion
+            theta = i * angulo_paso + self.rotacion  # Usar self.rotacion
             x = self.centro.x + self.radio * math.cos(theta)
             y = self.centro.y + self.radio * math.sin(theta)
             vertices.append(Punto(x, y))

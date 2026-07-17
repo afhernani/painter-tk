@@ -518,143 +518,119 @@ class CanvasView(tk.Canvas):
     # SELECCIÓN: PRESS
     # ================================================================
     def _press_select_mode(self, e):
+        """Presionar y determinar que estamos seleccionando"""
         log.info(f"_press_select_mode: en ({e.x}, {e.y})")
-        # 1. ¿Click sobre un handle? (área ampliada a 15 píxeles)
-        halo_handle = 15  # Aumentado de 6 a 15
+        
+        # 1. ¿Click sobre un handle?
+        halo_handle = 15
         handle_items = self.find_overlapping(
             e.x - halo_handle, e.y - halo_handle,
             e.x + halo_handle, e.y + halo_handle
         )
-        
         log.info(f"item encontrado en área de handle: {handle_items}")
-
+        
         for item in handle_items:
             tags = self.gettags(item)
             log.info(f"Item {item} tiene tags: {tags}")
-
-            # Buscar si este handle tiene un tag de figura (ej: 'fig_123')
-            fig_tag = next((t for t in tags if t.startswith('fig_')), None)
-            if fig_tag:
-                fig_id = int(fig_tag.split('_')[1])
-                # Buscar la figura en la lista y seleccionarla
-                for shape in self.shapes:
-                    if shape._canvas_id == fig_id:
-                        self._seleccionar_shape(shape)
-                        break
-            # Detectar qué handle es y establecer el estado.
-            # Handles de línea
-            if 'handle_start' in tags:
-                self.dragging_handle = 'start'
-                log.info("Detectado handle_start")
-                return
-            if 'handle_end' in tags:
-                self.dragging_handle = 'end'
-                log.info("Detectado handle_end")
-                return
-            # Handles de polyline
-            if any(tag.startswith('handle_polyline_') for tag in tags):
+            
+            # Detectar qué handle es (ANTES de borrar nada)
+            handle_detectado = None
+            
+            # Punto
+            if 'handle_punto' in tags:
+                handle_detectado = 'punto'
+            # Línea
+            elif 'handle_start' in tags:
+                handle_detectado = 'start'
+            elif 'handle_end' in tags:
+                handle_detectado = 'end'
+            # Polyline
+            elif any(tag.startswith('handle_polyline_') for tag in tags):
                 for tag in tags:
                     if tag.startswith('handle_polyline_'):
                         idx = int(tag.split('_')[-1])
-                        self.dragging_handle = f'polyline_{idx}'
-                        log.info(f"Detectado handle_polyline {idx}")
-                        return
-            # Handles de poligono
-            if 'handle_poligono_centro' in tags:
-                self.dragging_handle = 'poligono_centro'
-                log.info("Detectado handle_poligono_centro")
-                return
-            if any(t.startswith('handle_poligono_vertice_') for t in tags):
+                        handle_detectado = f'polyline_{idx}'
+                        # Buscar la polyline por tipo
+                        for shape in self.shapes:
+                            if isinstance(shape, Polyline):
+                                self._seleccionar_shape(shape)
+                                break
+                        break
+            # Polígono
+            elif 'handle_poligono_centro' in tags:
+                handle_detectado = 'poligono_centro'
+            elif any(t.startswith('handle_poligono_vertice_') for t in tags):
                 idx = int([t for t in tags if t.startswith('handle_poligono_vertice_')][0].split('_')[-1])
-                self.dragging_handle = f'poligono_vertice_{idx}'
-                log.info(f"Detetado handle_poligono_vertice {idx}")
-                return
-            # Handles de círculo
-            if 'handle_circulo_centro' in tags:
-                self.dragging_handle = 'circulo_centro'
-                log.info("Detectado handle_circulo_centro")
-                return
-            if 'handle_circulo_perimetro' in tags:
-                self.dragging_handle = 'circulo_perimetro'
-                log.info("Detectado handle_circulo_perimetro")
-                return
+                handle_detectado = f'poligono_vertice_{idx}'
+            # Círculo
+            elif 'handle_circulo_centro' in tags:
+                handle_detectado = 'circulo_centro'
+            elif 'handle_circulo_perimetro' in tags:
+                handle_detectado = 'circulo_perimetro'
+            # Elipse
+            elif 'handle_elipse_centro' in tags:
+                handle_detectado = 'elipse_centro'
+            elif 'handle_elipse_eje_x' in tags:
+                handle_detectado = 'elipse_eje_x'
+            elif 'handle_elipse_eje_y' in tags:
+                handle_detectado = 'elipse_eje_y'
+            # Arco
+            elif 'handle_arco_centro' in tags:
+                handle_detectado = 'arco_centro'
+            elif 'handle_arco_inicio' in tags:
+                handle_detectado = 'arco_inicio'
+            elif 'handle_arco_final' in tags:
+                handle_detectado = 'arco_final'
+            # Bbox
+            elif 'handle_nw' in tags:
+                handle_detectado = 'nw'
+            elif 'handle_ne' in tags:
+                handle_detectado = 'ne'
+            elif 'handle_sw' in tags:
+                handle_detectado = 'sw'
+            elif 'handle_se' in tags:
+                handle_detectado = 'se'
             
-            # Handles de Elipse
-            if 'handle_elipse_centro' in tags:
-                self.dragging_handle = 'elipse_centro'
-                return
-            if 'handle_elipse_eje_x' in tags:
-                self.dragging_handle = 'elipse_eje_x'
-                return
-            if 'handle_elipse_eje_y' in tags:
-                self.dragging_handle = 'elipse_eje_y'
-                return
-            
-            # Handles de Arco
-            if 'handle_arco_centro' in tags:
-                self.dragging_handle = 'arco_centro'
-                return
-            if 'handle_arco_inicio' in tags:
-                self.dragging_handle = 'arco_inicio'
-                return
-            if 'handle_arco_final' in tags:
-                self.dragging_handle = 'arco_final'
-                return
-
-            # Handles de bbox
-            if 'handle_nw' in tags:
-                self.dragging_handle = 'nw'
-                if self.shape_seleccionada:
+            # Si se detectó un handle, procesarlo
+            if handle_detectado:
+                log.info(f"Handle detectado: {handle_detectado}")
+                
+                # Buscar la figura asociada al handle
+                fig_tag = next((t for t in tags if t.startswith('fig_')), None)
+                if fig_tag and fig_tag != 'fig_None':
+                    try:
+                        fig_id = int(fig_tag.split('_')[1])
+                        for shape in self.shapes:
+                            if shape._canvas_id == fig_id:
+                                self._seleccionar_shape(shape)
+                                break
+                    except (ValueError, IndexError):
+                        log.error(f"Error in _pess_select_mode: tag = {fig_tag}")
+                
+                # AHORA sí, establecer el handle a arrastrar
+                self.dragging_handle = handle_detectado
+                
+                # Guardar bbox inicial si es un handle de bbox
+                if handle_detectado in ('nw', 'ne', 'sw', 'se') and self.shape_seleccionada:
                     self._bbox_inicial = self.shape_seleccionada.bbox()
-                log.info("Detectado handle_nw")
-                return
-            if 'handle_ne' in tags:
-                self.dragging_handle = 'ne'
-                if self.shape_seleccionada:
-                    self._bbox_inicial = self.shape_seleccionada.bbox()
-                log.info("Detectado handle_ne")
-                return
-            if 'handle_sw' in tags:
-                self.dragging_handle = 'sw'
-                if self.shape_seleccionada:
-                    self._bbox_inicial = self.shape_seleccionada.bbox()
-                log.info("Detectado handle_sw")
-                return
-            if 'handle_se' in tags:
-                self.dragging_handle = 'se'
-                if self.shape_seleccionada:
-                    self._bbox_inicial = self.shape_seleccionada.bbox()
-                log.info("Detectado handle_se")
+                
                 return
         
-        # 2. ¿click sobre una figura?
+        # 2. ¿Click sobre una figura (NO es un handle)?
         halo = 8
-        encontrados = self.find_overlapping(e.x-halo, e.y-halo, e.x+halo, e.y+halo)
+        encontrados = self.find_overlapping(e.x - halo, e.y - halo, e.x + halo, e.y + halo)
         log.info(f"Items encontrados en área de figura: {encontrados}")
-
+        
         shape_candidata = None
         for item_id in reversed(encontrados):
-            # if shape is not None:
-            #     shape_candidata = shape
-            #     break
-            # Asegurarnos de que no sea un handle
             tags = self.gettags(item_id)
-            # ignorar totalmente si es un handle
             if 'handle' in tags:
                 continue
-            
             shape = self._find_shape_by_id(item_id)
             if shape is not None:
                 shape_candidata = shape
                 break
-            
-            # if 'handle' not in self.gettags(item_id):
-            #     shape = self._find_shape_by_id(item_id)
-            #     if shape is not None:
-            #         shape_candidata = shape
-            #         break
-
-
+        
         if shape_candidata:
             log.info(f"Figura encontrada: {shape_candidata}")
             self._seleccionar_shape(shape_candidata)
@@ -662,31 +638,21 @@ class CanvasView(tk.Canvas):
             self.drag_start_x = e.x
             self.drag_start_y = e.y
             log.info(f"Arrastrando figura: {shape_candidata}")
-
-            # Si es polyline, detectar qué segmento se está arrastrando
+            
             if isinstance(shape_candidata, Polyline):
                 self._detectar_segmento_polyline(e.x, e.y)
                 return
             
-            # Después de verificar handles, si es Poligono:
             if isinstance(shape_candidata, Poligono):
                 segmento = self._detectar_segmento_poligono(e.x, e.y, shape_candidata)
                 if segmento is not None:
                     self.dragging_handle = f'poligono_segmento_{segmento}'
-                    log.info(f"Detectando segmento polígono: {segmento}")
-                    # Guardar posición inicial para calcular delta
                     self.drag_start_x = e.x
                     self.drag_start_y = e.y
                 return
             
-            # Si no es un handle, pero es un arco, permitir moverlo desde el perímetro
-            if isinstance(shape_candidata, Arco):
-                self.dragging_shape = True
-                self.drag_start_x = e.x
-                self.drag_start_y = e.y
-                self._seleccionar_shape(shape_candidata)
-                return
-    
+            return
+        
         log.info("Click en vacio, deseleccionar")
         self._deseleccionar_todo()
 
@@ -702,7 +668,9 @@ class CanvasView(tk.Canvas):
             return
         
         if self.dragging_handle:
-            if self.dragging_handle in ('start', 'end'):
+            if self.dragging_handle == 'punto':
+                self._mover_punto(e)
+            elif self.dragging_handle in ('start', 'end'):
                 self._mover_handle_linea(e)
             elif self.dragging_handle.startswith('polyline_'):
                 self._mover_handle_polyline(e)
@@ -815,7 +783,8 @@ class CanvasView(tk.Canvas):
         elif isinstance(shape, Arco): # manejo de arco
             self._mostrar_handles_arco(shape)
         elif isinstance(shape, PointShape):
-            pass # PointShape no tiene manejadores
+            self._mostrar_handles_punto(shape)
+            #pass # PointShape no tiene manejadores
         else:
             self._mostrar_handles_bbox(shape)
             
@@ -823,6 +792,19 @@ class CanvasView(tk.Canvas):
     # ================================================================
     # HANDLES
     # ================================================================
+    def _mostrar_handles_punto(self, shape):
+        """Muestra handle en el punto"""
+        self.delete('handle_punto')
+        
+        self.handle_punto = self.create_oval(
+            shape.punto.x - 6, shape.punto.y - 6,
+            shape.punto.x + 6, shape.punto.y + 6,
+            fill='green', outline='white', width=2,
+            tags=('handle', 'handle_punto', f'fig_{shape._canvas_id}')
+        )
+        self.tag_raise('handle')
+        log.info(f"Handle punto creado: {self.handle_punto}")
+    
     def _mostrar_handles_para_shape(self, shape, tag):
         """Muestra los handles apropiados según el tipo de shape"""
         # Los trazos de lápiz no tienen handles editables
@@ -840,17 +822,21 @@ class CanvasView(tk.Canvas):
             self._mostrar_handles_bbox(shape)
     
     def _mostrar_handles_linea(self, shape):
-        self.delete('handle')
+        """Muestra handle en los estremos de la línea"""
+        self.delete('handle_start')
+        self.delete('handle_end')
         self.handle_start = self.create_oval(
             shape.p1.x-6, shape.p1.y-6, shape.p1.x+6, shape.p1.y+6,
             fill='blue', outline='white', width=2,
-            tags=('handle', 'handle_start')
+            tags=('handle', 'handle_start', f'fig_{shape._canvas_id}')
         )
         self.handle_end = self.create_oval(
             shape.p2.x-6, shape.p2.y-6, shape.p2.x+6, shape.p2.y+6,
             fill='blue', outline='white', width=2,
-            tags=('handle', 'handle_end')
+            tags=('handle', 'handle_end', f'fig_{shape._canvas_id}')
         )
+        self.tag_raise('handle')
+        log.info(f"Handles línea creados: {self.handle_start}, {self.handle_end}")
 
     def _mover_handle_polyline(self, e):
         """Mueve un vértice de una polyline"""
@@ -881,19 +867,19 @@ class CanvasView(tk.Canvas):
         self.handle_nw = self.create_oval(
             x1-6, y1-6, x1+6, y1+6,
             fill='green', outline='white', width=2,
-            tags=('handle', 'handle_nw'))
+            tags=('handle', 'handle_nw', f'fig_{shape._canvas_id}'))
         self.handle_ne = self.create_oval(
             x2-6, y1-6, x2+6, y1+6,
             fill='green', outline='white', width=2,
-            tags=('handle', 'handle_ne'))
+            tags=('handle', 'handle_ne', f'fig_{shape._canvas_id}'))
         self.handle_sw = self.create_oval(
             x1-6, y2-6, x1+6, y2+6,
             fill='green', outline='white', width=2,
-            tags=('handle', 'handle_sw'))
+            tags=('handle', 'handle_sw', f'fig_{shape._canvas_id}'))
         self.handle_se = self.create_oval(
             x2-6, y2-6, x2+6, y2+6,
             fill='green', outline='white', width=2,
-            tags=('handle', 'handle_se'))
+            tags=('handle', 'handle_se', f'fig_{shape._canvas_id}'))
 
     def _mover_handle_linea(self, e):
         """Mueve un extremo de una línea del modelo"""
@@ -975,20 +961,35 @@ class CanvasView(tk.Canvas):
 
     def _mostrar_handles_polyline(self, shape):
         """Muestra handles azules en cada vértice de la polyline"""
-        self.delete('handle')
+        # Limpiar handles anteriores
+        if hasattr(self, 'handles_polyline'):
+            for h in self.handles_polyline:
+                if h is not None:
+                    self.delete(h)
+        
         self.handles_polyline = []
+        # Usar el primer segmento como ID (si existe)
+        fig_id = shape._canvas_id if shape._canvas_id else (shape._canvas_ids[0] if hasattr(shape, '_canvas_ids') and shape._canvas_ids else 'polyline')
+    
         
         for i, punto in enumerate(shape.puntos):
             handle = self.create_oval(
                 punto.x - 6, punto.y - 6, punto.x + 6, punto.y + 6,
                 fill='blue', outline='white', width=2,
-                tags=('handle', f'handle_polyline_{i}')
+                tags=('handle', f'handle_polyline_{i}', f'fig_{fig_id}')
             )
             self.handles_polyline.append(handle)
+        self.tag_raise('handle')
+        log.info(f"Handles polyline creados: {len(self.handles_polyline)} handles")
 
     def _mostrar_handles_poligono(self, shape: Poligono):
         """Muestra handles en vértices y centro del polígono"""
-        self.delete('handle')
+        self.delete('handle_poligono_centro')
+        if hasattr(self, 'handles_poligono'):
+            for h in self.handles_poligono:
+                if h is not None:
+                    self.delete(h)
+
         self.handles_poligono = []
         
         # Handle del centro (color diferente, ej: verde)
@@ -998,7 +999,9 @@ class CanvasView(tk.Canvas):
             fill='green', outline='white', width=2,
             tags=('handle', 'handle_poligono_centro', f'fig_{shape._canvas_id}')
         )
-        self.handles_poligono.append(('centro', handle_centro))
+        self.handles_poligono_centro = handle_centro # guarda en la variable correcta.
+        #self.handles_poligono.append(handle)
+        #self.handles_poligono.append(('centro', handle_centro))
         
         # Handles de vértices (color azul)
         vertices = shape.obtener_vertices()
@@ -1008,8 +1011,10 @@ class CanvasView(tk.Canvas):
                 fill='blue', outline='white', width=2,
                 tags=('handle', f'handle_poligono_vertice_{i}', f'fig_{shape._canvas_id}')
             )
-            self.handles_poligono.append((f'vertice_{i}', handle))
-
+            self.handles_poligono.append(handle)
+        
+        self.tag_raise('handle')
+        log.info(f"Handles polígono creados: centro={self.handle_poligono_centro}, {len(self.handles_poligono)} vértices")
     # ================================================================
     # RESTAURAR (polimórfico)
     # ================================================================
@@ -1102,7 +1107,32 @@ class CanvasView(tk.Canvas):
             self._deseleccionar_todo()
             self._set_status(f"Objeto eliminado: {shape}")
             log.info(f"Shape eliminada: {shape}")
-    
+    # -------------
+    # Punto
+    # -------------
+    def _mover_punto(self, e):
+        """Mueve el punto seleccionado"""
+        shape = self.shape_seleccionada
+        if not isinstance(shape, PointShape): return
+        
+        # Borrar el punto anterior
+        if shape._canvas_id is not None:
+            self.delete(shape._canvas_id)
+        
+        # Mover el punto
+        dx = e.x - shape.punto.x
+        dy = e.y - shape.punto.y
+        shape.mover(dx, dy)
+        
+        # Redibujar el punto
+        shape.dibujar_en(self)
+        
+        # Actualizar el handle
+        if self.handle_punto:
+            self.coords(self.handle_punto,
+                        shape.punto.x - 6, shape.punto.y - 6,
+                        shape.punto.x + 6, shape.punto.y + 6)
+            
     # -------------------------
     # Línea
     # -------------------------
@@ -1460,6 +1490,38 @@ class CanvasView(tk.Canvas):
         self._set_status("Rectángulo creado")
         self._save_state()
 
+    def _mostrar_handles_rectangulo(self, shape):
+        """Muestra handles en las esquinas del rectángulo"""
+        for tag in ['handle_nw', 'handle_ne', 'handle_sw', 'handle_se']:
+            self.delete(tag)
+        
+        x1, y1 = min(shape.p1.x, shape.p2.x), min(shape.p1.y, shape.p2.y)
+        x2, y2 = max(shape.p1.x, shape.p2.x), max(shape.p1.y, shape.p2.y)
+        
+        self.handle_nw = self.create_oval(
+            x1 - 6, y1 - 6, x1 + 6, y1 + 6,
+            fill='blue', outline='white', width=2,
+            tags=('handle', 'handle_nw', f'fig_{shape._canvas_id}')
+        )
+        self.handle_ne = self.create_oval(
+            x2 - 6, y1 - 6, x2 + 6, y1 + 6,
+            fill='blue', outline='white', width=2,
+            tags=('handle', 'handle_ne', f'fig_{shape._canvas_id}')
+        )
+        self.handle_sw = self.create_oval(
+            x1 - 6, y2 - 6, x1 + 6, y2 + 6,
+            fill='blue', outline='white', width=2,
+            tags=('handle', 'handle_sw', f'fig_{shape._canvas_id}')
+        )
+        self.handle_se = self.create_oval(
+            x2 - 6, y2 - 6, x2 + 6, y2 + 6,
+            fill='blue', outline='white', width=2,
+            tags=('handle', 'handle_se', f'fig_{shape._canvas_id}')
+        )
+        
+        self.tag_raise('handle')
+        log.info(f"Handles rectángulo creados: {self.handle_nw}, {self.handle_ne}, {self.handle_sw}, {self.handle_se}")
+
     # ----------------
     # Elipse
     # ----------------
@@ -1514,25 +1576,24 @@ class CanvasView(tk.Canvas):
         )
         
         # 2. Handle Eje X (Azul - Borde derecho)
-        p_eje_x = shape.obtener_punto_eje_x()
         self.handle_elipse_eje_x = self.create_oval(
-            p_eje_x.x - 6, p_eje_x.y - 6,
-            p_eje_x.x + 6, p_eje_x.y + 6,
+            shape.centro.x + shape.radio_x - 6, shape.centro.y - 6,
+            shape.centro.x + shape.radio_x + 6, shape.centro.y + 6,
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_elipse_eje_x', f'fig_{shape._canvas_id}')
         )
         
         # 3. Handle Eje Y (Azul - Borde inferior)
-        p_eje_y = shape.obtener_punto_eje_y()
         self.handle_elipse_eje_y = self.create_oval(
-            p_eje_y.x - 6, p_eje_y.y - 6,
-            p_eje_y.x + 6, p_eje_y.y + 6,
+            shape.centro.x - 6, shape.centro.y + shape.radio_y - 6,
+            shape.centro.x + 6, shape.centro.y + shape.radio_y + 6,
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_elipse_eje_y', f'fig_{shape._canvas_id}')
         )
         
         # Traer al frente para que sean clicables
         self.tag_raise('handle')
+        log.info(f"Handles elipse creados: centro={self.handle_elipse_centro}, eje_x={self.handle_elipse_eje__x}, eje_y={self.handle_elipse_eje_y}")
 
     def _mover_elipse_centro(self, e):
         """Mueve el centro de la elipse (traslación)"""
@@ -1764,6 +1825,7 @@ class CanvasView(tk.Canvas):
         
         # Traer al frente
         self.tag_raise('handle')
+        log.info(f"Handles arco creados: centro={self.handle_arco_centro}, inicio={self.handle_arco_inicio}, final={self.handle_arco_final}")
 
     def _mover_arco_centro(self, e):
         """Mueve el centro del arco (traslación)"""
