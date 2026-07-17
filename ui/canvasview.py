@@ -122,7 +122,6 @@ class CanvasView(tk.Canvas):
     # def _on_click(self, event):
     #     log.info("_on_click: click")
     #     self.focus_set()
-        
 
     def _get_mode(self):
         return 'L'
@@ -255,7 +254,6 @@ class CanvasView(tk.Canvas):
                 width=2
             )
             return
-
 
     # ================================================================
     # PRESS
@@ -527,11 +525,23 @@ class CanvasView(tk.Canvas):
             e.x - halo_handle, e.y - halo_handle,
             e.x + halo_handle, e.y + halo_handle
         )
+        
         log.info(f"item encontrado en área de handle: {handle_items}")
+
         for item in handle_items:
             tags = self.gettags(item)
             log.info(f"Item {item} tiene tags: {tags}")
 
+            # Buscar si este handle tiene un tag de figura (ej: 'fig_123')
+            fig_tag = next((t for t in tags if t.startswith('fig_')), None)
+            if fig_tag:
+                fig_id = int(fig_tag.split('_')[1])
+                # Buscar la figura en la lista y seleccionarla
+                for shape in self.shapes:
+                    if shape._canvas_id == fig_id:
+                        self._seleccionar_shape(shape)
+                        break
+            # Detectar qué handle es y establecer el estado.
             # Handles de línea
             if 'handle_start' in tags:
                 self.dragging_handle = 'start'
@@ -616,6 +626,7 @@ class CanvasView(tk.Canvas):
                     self._bbox_inicial = self.shape_seleccionada.bbox()
                 log.info("Detectado handle_se")
                 return
+        
         # 2. ¿click sobre una figura?
         halo = 8
         encontrados = self.find_overlapping(e.x-halo, e.y-halo, e.x+halo, e.y+halo)
@@ -623,10 +634,26 @@ class CanvasView(tk.Canvas):
 
         shape_candidata = None
         for item_id in reversed(encontrados):
+            # if shape is not None:
+            #     shape_candidata = shape
+            #     break
+            # Asegurarnos de que no sea un handle
+            tags = self.gettags(item_id)
+            # ignorar totalmente si es un handle
+            if 'handle' in tags:
+                continue
+            
             shape = self._find_shape_by_id(item_id)
             if shape is not None:
                 shape_candidata = shape
                 break
+            
+            # if 'handle' not in self.gettags(item_id):
+            #     shape = self._find_shape_by_id(item_id)
+            #     if shape is not None:
+            #         shape_candidata = shape
+            #         break
+
 
         if shape_candidata:
             log.info(f"Figura encontrada: {shape_candidata}")
@@ -640,6 +667,7 @@ class CanvasView(tk.Canvas):
             if isinstance(shape_candidata, Polyline):
                 self._detectar_segmento_polyline(e.x, e.y)
                 return
+            
             # Después de verificar handles, si es Poligono:
             if isinstance(shape_candidata, Poligono):
                 segmento = self._detectar_segmento_poligono(e.x, e.y, shape_candidata)
@@ -968,7 +996,7 @@ class CanvasView(tk.Canvas):
             shape.centro.x - 6, shape.centro.y - 6,
             shape.centro.x + 6, shape.centro.y + 6,
             fill='green', outline='white', width=2,
-            tags=('handle', 'handle_poligono_centro')
+            tags=('handle', 'handle_poligono_centro', f'fig_{shape._canvas_id}')
         )
         self.handles_poligono.append(('centro', handle_centro))
         
@@ -978,7 +1006,7 @@ class CanvasView(tk.Canvas):
             handle = self.create_oval(
                 v.x - 6, v.y - 6, v.x + 6, v.y + 6,
                 fill='blue', outline='white', width=2,
-                tags=('handle', f'handle_poligono_vertice_{i}')
+                tags=('handle', f'handle_poligono_vertice_{i}', f'fig_{shape._canvas_id}')
             )
             self.handles_poligono.append((f'vertice_{i}', handle))
 
@@ -1482,7 +1510,7 @@ class CanvasView(tk.Canvas):
             shape.centro.x - 6, shape.centro.y - 6,
             shape.centro.x + 6, shape.centro.y + 6,
             fill='green', outline='white', width=2,
-            tags=('handle', 'handle_elipse_centro')
+            tags=('handle', 'handle_elipse_centro', f'fig_{shape._canvas_id}')
         )
         
         # 2. Handle Eje X (Azul - Borde derecho)
@@ -1491,7 +1519,7 @@ class CanvasView(tk.Canvas):
             p_eje_x.x - 6, p_eje_x.y - 6,
             p_eje_x.x + 6, p_eje_x.y + 6,
             fill='blue', outline='white', width=2,
-            tags=('handle', 'handle_elipse_eje_x')
+            tags=('handle', 'handle_elipse_eje_x', f'fig_{shape._canvas_id}')
         )
         
         # 3. Handle Eje Y (Azul - Borde inferior)
@@ -1500,7 +1528,7 @@ class CanvasView(tk.Canvas):
             p_eje_y.x - 6, p_eje_y.y - 6,
             p_eje_y.x + 6, p_eje_y.y + 6,
             fill='blue', outline='white', width=2,
-            tags=('handle', 'handle_elipse_eje_y')
+            tags=('handle', 'handle_elipse_eje_y', f'fig_{shape._canvas_id}')
         )
         
         # Traer al frente para que sean clicables
@@ -1575,7 +1603,7 @@ class CanvasView(tk.Canvas):
             shape.centro.x - 6, shape.centro.y - 6,
             shape.centro.x + 6, shape.centro.y + 6,
             fill='green', outline='white', width=2,
-            tags=('handle', 'handle_circulo_centro')
+            tags=('handle', 'handle_circulo_centro', f'fig_{shape._canvas_id}')
         )
         
         log.info(f"Handle centro creado: {self.handle_circulo_centro}")
@@ -1586,7 +1614,7 @@ class CanvasView(tk.Canvas):
             punto_perimetro.x - 6, punto_perimetro.y - 6,
             punto_perimetro.x + 6, punto_perimetro.y + 6,
             fill='blue', outline='white', width=2,
-            tags=('handle', 'handle_circulo_perimetro')
+            tags=('handle', 'handle_circulo_perimetro', f'fig_{shape._canvas_id}')
         )
         log.info(f"Handle perímetro creado: {self.handle_circulo_perimetro} en {punto_perimetro}")
     
@@ -1713,7 +1741,7 @@ class CanvasView(tk.Canvas):
             shape.centro.x - 6, shape.centro.y - 6,
             shape.centro.x + 6, shape.centro.y + 6,
             fill='green', outline='white', width=2,
-            tags=('handle', 'handle_arco_centro')
+            tags=('handle', 'handle_arco_centro',f'fig_{shape._canvas_id}')
         )
         
         # 2. Handle del punto inicial (Azul)
@@ -1722,7 +1750,7 @@ class CanvasView(tk.Canvas):
             p_inicio.x - 6, p_inicio.y - 6,
             p_inicio.x + 6, p_inicio.y + 6,
             fill='blue', outline='white', width=2,
-            tags=('handle', 'handle_arco_inicio')
+            tags=('handle', 'handle_arco_inicio', f'fig_{shape._canvas_id}')
         )
         
         # 3. Handle del punto final (Azul)
@@ -1731,7 +1759,7 @@ class CanvasView(tk.Canvas):
             p_final.x - 6, p_final.y - 6,
             p_final.x + 6, p_final.y + 6,
             fill='blue', outline='white', width=2,
-            tags=('handle', 'handle_arco_final')
+            tags=('handle', 'handle_arco_final', f'fig_{shape._canvas_id}')
         )
         
         # Traer al frente
