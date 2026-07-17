@@ -5,7 +5,8 @@ Se encarga de guardar y cargar proyectos completos.
 """
 import json
 import logging
-from geometry import Punto, Linea, Circulo, Poligono, Polyline, Rectangulo, Elipse, Arco, PointShape
+from geometry import Punto, Linea, Circulo, Poligono, Polyline
+from geometry import Rectangulo, Elipse, Arco, PointShape, Texto
 
 log = logging.getLogger('Storage.JSON')
 
@@ -20,6 +21,7 @@ SHAPE_FACTORY = {
     "Arco": Arco,
     "Point": PointShape,
     "Punto": PointShape,
+    "Texto": Texto
 }
 
 

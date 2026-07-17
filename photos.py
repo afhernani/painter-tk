@@ -54,6 +54,7 @@ class Photos:
         self._punto = tk.PhotoImage(file=resource_path('Assets/punto.png'))
         self._undo = tk.PhotoImage(file=resource_path('Assets/undo.png'))
         self._redo = tk.PhotoImage(file=resource_path('Assets/redo.png'))
+        self._texto = tk.PhotoImage(file=resource_path('Assets/texto.png'))
         
         # Iconos de acciones
         self._fillcolor = tk.PhotoImage(file=resource_path('Assets/fillcolor.png'))

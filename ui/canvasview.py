@@ -12,6 +12,7 @@ from geometry.ellipse import Elipse
 from geometry.arco import Arco
 from geometry.polyline import Polyline
 from geometry.polygon import Poligono
+from geometry.texto import Texto
 from storage import save_project, load_project
 from storage.json_storage import SHAPE_FACTORY, _reconstruir_puntos
 from configmanager import config 
@@ -64,6 +65,9 @@ class CanvasView(tk.Canvas):
         self.arco_angulo_inicio = 0.0
         self.arco_estado = 0  # 0: esperando centro, 1: esperando p1, 2: esperando p2
         self.arco_preview_id = None
+        # Estado para modo Texto
+        self.texto_preview_id = None
+        self.texto_posicion = None
 
         self.lin_x = None
         self.lin_y = None
@@ -257,6 +261,16 @@ class CanvasView(tk.Canvas):
                 width=2
             )
             return
+        # Preview de Texto (solo muestra un punto donde se creará)
+        if mode == 'T':
+            if self.texto_preview_id is not None:
+                self.delete(self.texto_preview_id)
+            self.texto_preview_id = self.create_oval(
+                e.x - 3, e.y - 3, e.x + 3, e.y + 3,
+                fill='gray', outline=''
+            )
+            self._set_status(f"Texto: click para insertar en ({e.x}, {e.y})")
+            return
 
     # ================================================================
     # PRESS
@@ -396,6 +410,36 @@ class CanvasView(tk.Canvas):
             elif self.arco_estado == 2:
                 # Tercer clic: punto final → crear arco
                 self._finalizar_arco(e.x, e.y)
+            return
+
+        # ── MODO TEXTO: click → abre diálogo → crea texto ──
+        if mode == 'T':
+            from tkinter import simpledialog
+            
+            # Abrir diálogo para escribir el texto
+            texto_ingresado = simpledialog.askstring(
+                "Insertar Texto",
+                "Escribe el texto:",
+                initialvalue="Texto"
+            )
+            
+            if texto_ingresado:  # Si el usuario no canceló
+                width = self._get_width()
+                color = self._get_color_fg()
+                tamaño = int(width * 4)  # Escalar tamaño basado en grosor
+                
+                shape = Texto(
+                    posicion=Punto(e.x, e.y),
+                    texto=texto_ingresado,
+                    color=color,
+                    tamaño=tamaño
+                )
+                shape._tag = 'Texto'
+                shape.dibujar_en(self)
+                self.shapes.append(shape)
+                log.info(f"Texto creado: {shape}")
+                self._save_state()
+            
             return
 
         if mode == 'P':
@@ -789,6 +833,8 @@ class CanvasView(tk.Canvas):
         elif isinstance(shape, PointShape):
             self._mostrar_handles_punto(shape)
             #pass # PointShape no tiene manejadores
+        elif isinstance(shape, Texto):
+            self._mostrar_handles_bbox(shape)  # Texto usa bbox estándar
         else:
             self._mostrar_handles_bbox(shape)
             

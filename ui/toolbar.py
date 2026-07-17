@@ -134,6 +134,7 @@ class Toolbar:
             ("Rectangle", "R",  self.photos._rectangle),
             ("Elipse",      "E",  self.photos._elipse),
             ("Arco",      "A", self.photos._arco),
+            ("Texto",     "T", self.photos._texto),
             ("Select",    "S", self.photos._move),
         ]
         # Trazar cambios de modo

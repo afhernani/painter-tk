@@ -17,6 +17,7 @@ from .arco import Arco
 from .polyline import Polyline
 from .pointshape import PointShape
 from .polygon import Poligono
+from .texto import Texto
 
 __all__ = [
     'Punto',
@@ -29,6 +30,7 @@ __all__ = [
     'Polyline',
     'PointShape',
     'Poligono'
+    'Texto'
 ]
 
 __version__ = '1.0.0'
