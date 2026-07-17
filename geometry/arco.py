@@ -154,6 +154,26 @@ class Arco(Shape):
         angulo_final = math.degrees(math.atan2(dy, dx))
         self.extension = angulo_final - self.angulo_inicio
 
+    def actualizar_en_canvas(self, canvas):
+        """Actualiza el arco existente en el canvas (no crea uno nuevo)"""
+        if self._canvas_id is None:
+            return
+        
+        # Calcular nuevo bbox
+        bbox = [
+            self.centro.x - self.radio, self.centro.y - self.radio,
+            self.centro.x + self.radio, self.centro.y + self.radio
+        ]
+        
+        # Actualizar coordenadas del arco
+        canvas.coords(self._canvas_id, *bbox)
+        
+        # Actualizar parámetros del arco (ángulos, color, grosor)
+        canvas.itemconfig(self._canvas_id,
+                        start=self.angulo_inicio,
+                        extent=self.extension,
+                        outline=self.color,
+                        width=self.grosor)
 
     @classmethod
     def from_dict(cls, data: dict) -> 'Arco':
