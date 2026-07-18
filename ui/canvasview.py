@@ -2360,9 +2360,19 @@ class CanvasView(tk.Canvas):
         # Redibujar la figura
         shape.dibujar_en(self)
         
+        # Si está seleccionada, aplicar resaltado visual
+        if self.shape_seleccionada == shape:
+            if isinstance(shape, (Linea, Polyline)):
+                # Para líneas, el resaltado usa fill
+                self.itemconfig(shape._canvas_id, fill='red', width=shape.grosor + 1)
+            else:
+                # Para otras figuras, usa outline
+                self.itemconfig(shape._canvas_id, outline='red', width=shape.grosor + 1)
+
+
         # Si está resaltada (seleccionada), volver a resaltar
-        if hasattr(shape, 'resaltar'):
-            shape.resaltar(self, 'red')
+        # if hasattr(shape, 'resaltar'):
+        #     shape.resaltar(self, 'red')
         
         # Guardar estado para undo/redo
         self._save_state()
