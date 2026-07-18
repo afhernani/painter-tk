@@ -139,58 +139,61 @@ class CanvasView(tk.Canvas):
     # def _on_click(self, event):
     #     log.info("_on_click: click")
     #     self.focus_set()
-    def _crear_menu_contextual_texto(self):
-        """Crea y configura el menú contextual para textos"""
-        # Menú contextual para Texto
-        self.menu_texto = tk.Menu(self, tearoff=0)
-        self.menu_texto.add_command(label="✏️ Editar texto...", command=self._editar_texto_seleccionado)
-        self.menu_texto.add_separator()
 
-        # Submenú de Fuentes
-        self.submenu_fuente = tk.Menu(self.menu_texto, tearoff=0)
-        for f in ["Arial", "Times New Roman", "Courier New", "Verdana", "Georgia", "Comic Sans MS"]:
-            self.submenu_fuente.add_command(label=f, command=lambda fn=f: self._cambiar_fuente_texto(fn))
-        self.menu_texto.add_cascade(label="🔤 Fuente", menu=self.submenu_fuente)
-
-        # Submenú de Tamaños
-        self.submenu_tamano = tk.Menu(self.menu_texto, tearoff=0)
-        for t in [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72]:
-            self.submenu_tamano.add_command(label=str(t), command=lambda sz=t: self._cambiar_tamano_texto(sz))
-        self.menu_texto.add_cascade(label="📏 Tamaño", menu=self.submenu_tamano)
-
-        # Color
-        self.menu_texto.add_command(label="🎨 Color...", command=self._cambiar_color_texto)
-        self.menu_texto.add_separator()
-
-        # Negrita y Cursiva (con variables de estado para mostrar check)
-        self.var_negrita = tk.BooleanVar(value=False)
-        self.var_cursiva = tk.BooleanVar(value=False)
-        self.menu_texto.add_checkbutton(label="**B** Negrita", variable=self.var_negrita, command=self._toggle_negrita_texto)
-        self.menu_texto.add_checkbutton(label="*I* Cursiva", variable=self.var_cursiva, command=self._toggle_cursiva_texto)
+    def _mostrar_menu_contextual(self, shape, e):
+        """Construye y muestra el menú contextual según el tipo de figura"""
+        # Destruir menú anterior si existe para evitar duplicados
+        if hasattr(self, 'menu_contextual_actual'):
+            self.menu_contextual_actual.destroy()
         
-        # Submenú de Alineación
-        self.submenu_alineacion = tk.Menu(self.menu_texto, tearoff=0)
-        self.var_alineacion = tk.StringVar(value="center")
-        self.submenu_alineacion.add_radiobutton(
-            label="⬅ Izquierda", 
-            variable=self.var_alineacion, 
-            value="left",
-            command=lambda: self._cambiar_alineacion_texto("left")
-        )
-        self.submenu_alineacion.add_radiobutton(
-            label="↔ Centro", 
-            variable=self.var_alineacion, 
-            value="center",
-            command=lambda: self._cambiar_alineacion_texto("center")
-        )
-        self.submenu_alineacion.add_radiobutton(
-            label="➡ Derecha", 
-            variable=self.var_alineacion, 
-            value="right",
-            command=lambda: self._cambiar_alineacion_texto("right")
-        )
-        self.menu_texto.add_cascade(label=" Alineación", menu=self.submenu_alineacion)
-    
+        self.menu_contextual_actual = tk.Menu(self, tearoff=0)
+        
+        # ─ Opciones específicas para Texto ──
+        if isinstance(shape, Texto):
+            self.menu_contextual_actual.add_command(label="✏️ Editar texto...", command=self._editar_texto_seleccionado)
+            self.menu_contextual_actual.add_separator()
+            
+            # Submenú Fuentes
+            submenu_fuente = tk.Menu(self.menu_contextual_actual, tearoff=0)
+            for f in ["Arial", "Times New Roman", "Courier New", "Verdana", "Georgia"]:
+                submenu_fuente.add_command(label=f, command=lambda fn=f: self._cambiar_fuente_texto(fn))
+            self.menu_contextual_actual.add_cascade(label="🔤 Fuente", menu=submenu_fuente)
+            
+            # Submenú Tamaños
+            submenu_tamano = tk.Menu(self.menu_contextual_actual, tearoff=0)
+            for t in [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72]:
+                submenu_tamano.add_command(label=str(t), command=lambda sz=t: self._cambiar_tamano_texto(sz))
+            self.menu_contextual_actual.add_cascade(label="📏 Tamaño", menu=submenu_tamano)
+            
+            # Alineación
+            submenu_alineacion = tk.Menu(self.menu_contextual_actual, tearoff=0)
+            self.var_alineacion = tk.StringVar(value=shape.alineacion if hasattr(shape, 'alineacion') else "center")
+            submenu_alineacion.add_radiobutton(label="⬅ Izquierda", variable=self.var_alineacion, value="left", command=lambda: self._cambiar_alineacion_texto("left"))
+            submenu_alineacion.add_radiobutton(label="↔ Centro", variable=self.var_alineacion, value="center", command=lambda: self._cambiar_alineacion_texto("center"))
+            submenu_alineacion.add_radiobutton(label=" Derecha", variable=self.var_alineacion, value="right", command=lambda: self._cambiar_alineacion_texto("right"))
+            self.menu_contextual_actual.add_cascade(label="📐 Alineación", menu=submenu_alineacion)
+            
+            self.menu_contextual_actual.add_separator()
+            self.var_negrita = tk.BooleanVar(value=shape.negrita)
+            self.var_cursiva = tk.BooleanVar(value=shape.cursiva)
+            self.menu_contextual_actual.add_checkbutton(label="**B** Negrita", variable=self.var_negrita, command=self._toggle_negrita_texto)
+            self.menu_contextual_actual.add_checkbutton(label="*I* Cursiva", variable=self.var_cursiva, command=self._toggle_cursiva_texto)
+            self.menu_contextual_actual.add_separator()
+
+        # ── Opciones Comunes para TODAS las figuras (Color, Grosor, Relleno) ──
+        # (Incluye Texto también si quieres, o puedes ponerlo en un 'else' si solo quieres para formas)
+        
+        self.menu_contextual_actual.add_command(label="🎨 Color contorno...", command=self._cambiar_color_contorno)
+        self.menu_contextual_actual.add_command(label="📏 Grosor línea...", command=self._cambiar_grosor_linea)
+        
+        # El relleno solo tiene sentido si la figura lo soporta (no líneas ni puntos usualmente, pero lo dejamos genérico)
+        if not isinstance(shape, (Linea, Polyline, PointShape)):
+            self.menu_contextual_actual.add_command(label="🪣 Color relleno...", command=self._cambiar_color_relleno)
+        
+        # Mostrar el menú en la posición del ratón
+        self.menu_contextual_actual.post(e.x_root, e.y_root)
+
+
     def _actualizar_cursor(self):
         """Actualiza el cursor según el modo actual"""
         mode = self._get_mode()
@@ -553,11 +556,10 @@ class CanvasView(tk.Canvas):
                 if 'handle' in tags:
                     continue
                 shape = self._find_shape_by_id(item_id)
-                if shape is not None and isinstance(shape, Texto):
-                    # ¡Es un Texto! Mostrar menú contextual
-                    self.shape_seleccionada = shape
-                    self._actualizar_estado_menu_texto(shape)
-                    self.menu_texto.post(e.x_root, e.y_root)
+                if shape is not None:
+                    # ¡Figura encontrada! Seleccionarla y mostrar menú
+                    self._seleccionar_shape(shape)
+                    self._mostrar_menu_contextual(shape, e)
                     return
             
             # Si no es un Texto, deseleccionar
@@ -2082,6 +2084,7 @@ class CanvasView(tk.Canvas):
                 self.tag_raise('handle')
                 log.info(f"Handles texto creados en bbox: {bbox}")
 
+    # Acciones del menu contextual
     def _actualizar_estado_menu_texto(self, shape: Texto):
         """Actualiza el estado de los checkbuttons del menú según el texto seleccionado"""
         self.var_negrita.set(shape.negrita)
@@ -2195,6 +2198,35 @@ class CanvasView(tk.Canvas):
         
         self._save_state()
         log.info(f"Alineación cambiada a {nueva_alineacion} en {shape}")
+
+    def _cambiar_color_contorno(self):
+        """Abre selector de color para el contorno"""
+        if not self.shape_seleccionada: return
+        color = colorchooser.askcolor(initialcolor=self.shape_seleccionada.color, title="Color de contorno")
+        if color and color[1]:
+            self.actualizar_color_seleccionado(color[1]) # Ya tienes este método implementado
+
+    def _cambiar_grosor_linea(self):
+        """Abre diálogo para cambiar el grosor"""
+        if not self.shape_seleccionada: return
+        from tkinter import simpledialog
+        nuevo_grosor = simpledialog.askfloat("Grosor de línea", "Nuevo grosor:", initialvalue=self.shape_seleccionada.grosor, minvalue=0.1, maxvalue=50.0)
+        if nuevo_grosor is not None:
+            self.actualizar_grosor_seleccionado(nuevo_grosor) # Ya tienes este método implementado
+
+    def _cambiar_color_relleno(self):
+        """Abre selector de color para el relleno"""
+        if not self.shape_seleccionada: return
+        
+        # Color inicial (si no tiene, usar blanco o transparente)
+        color_inicial = getattr(self.shape_seleccionada, 'relleno', '') or '#ffffff'
+        
+        color = colorchooser.askcolor(initialcolor=color_inicial, title="Color de relleno")
+        if color and color[1]:
+            self.actualizar_relleno_seleccionado(color[1]) # Ya tienes este método implementado
+        elif color and color[1] is None: 
+            # Si el usuario elige "Transparente" o cancela de cierta forma en algunos OS
+            self.actualizar_relleno_seleccionado('') 
 
     # ------------------
     # Metodos auxiliar
