@@ -2046,6 +2046,8 @@ class CanvasView(tk.Canvas):
         # Limitar el tamaño del historial
         if len(self.undo_stack) > self.max_history:
             self.undo_stack.pop(0)
+        
+        log.info(f"Estado guardado. undo_stack tiene {len(self.undo_stack)} elementos")
 
     def _restore_state(self, state):
         """Restaura el canvas y el modelo desde un estado guardado"""
