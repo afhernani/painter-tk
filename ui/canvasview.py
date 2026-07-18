@@ -112,6 +112,35 @@ class CanvasView(tk.Canvas):
         self.redo_stack = []
         self.max_history = 50  # Límite para no consumir mucha memoria
 
+        self._crear_menu_contextual_texto()
+        
+        # ----------
+        self.bind('<ButtonPress-1>', self._on_press)
+        self.bind('<B1-Motion>', self._on_motion)
+        self.bind('<ButtonRelease-1>', self._on_release)
+        self.bind('<Enter>', lambda e: self._actualizar_cursor())
+        self.bind('<Leave>', lambda e: self.configure(cursor=''))
+        #self.bind('<Button-1>', self._on_click)
+        self.bind('<Delete>', lambda e: self.eliminar_shape_seleccionada())
+        self.bind('<ButtonPress-3>', self._on_right_click)   # Click derecho → finalizar
+        self.bind('<Escape>', lambda e: self._cancelar_dibujo())
+        self.bind('<Motion>', self._on_mouse_move) # sigue el raton
+        self.bind('<Double-Button-1>', self._on_double_click)
+        # En app.py o donde tengas los binds
+        self.master.bind('<Control-z>', lambda e: self.undo())
+        self.master.bind('<Control-y>', lambda e: self.redo())
+        # establecer el foco en el canvasview
+        self.focus_set()
+        # guardar estado inicial
+        self._save_state()
+        
+        log.info("CanvasView inicializado")
+
+    # def _on_click(self, event):
+    #     log.info("_on_click: click")
+    #     self.focus_set()
+    def _crear_menu_contextual_texto(self):
+        """Crea y configura el menú contextual para textos"""
         # Menú contextual para Texto
         self.menu_texto = tk.Menu(self, tearoff=0)
         self.menu_texto.add_command(label="✏️ Editar texto...", command=self._editar_texto_seleccionado)
@@ -161,32 +190,7 @@ class CanvasView(tk.Canvas):
             command=lambda: self._cambiar_alineacion_texto("right")
         )
         self.menu_texto.add_cascade(label=" Alineación", menu=self.submenu_alineacion)
-        
-        # ----------
-        self.bind('<ButtonPress-1>', self._on_press)
-        self.bind('<B1-Motion>', self._on_motion)
-        self.bind('<ButtonRelease-1>', self._on_release)
-        self.bind('<Enter>', lambda e: self._actualizar_cursor())
-        self.bind('<Leave>', lambda e: self.configure(cursor=''))
-        #self.bind('<Button-1>', self._on_click)
-        self.bind('<Delete>', lambda e: self.eliminar_shape_seleccionada())
-        self.bind('<ButtonPress-3>', self._on_right_click)   # Click derecho → finalizar
-        self.bind('<Escape>', lambda e: self._cancelar_dibujo())
-        self.bind('<Motion>', self._on_mouse_move) # sigue el raton
-        self.bind('<Double-Button-1>', self._on_double_click)
-        # En app.py o donde tengas los binds
-        self.master.bind('<Control-z>', lambda e: self.undo())
-        self.master.bind('<Control-y>', lambda e: self.redo())
-        # establecer el foco en el canvasview
-        self.focus_set()
-        # guardar estado inicial
-        self._save_state()
-        
-        log.info("CanvasView inicializado")
-
-    # def _on_click(self, event):
-    #     log.info("_on_click: click")
-    #     self.focus_set()
+    
     def _actualizar_cursor(self):
         """Actualiza el cursor según el modo actual"""
         mode = self._get_mode()
