@@ -54,7 +54,7 @@ class Linea(Shape):
 
     def restaurar(self, canvas: tk.Canvas):
         if self._canvas_id is not None:
-            canvas.itemconfig(self._canvas_id, fill=self._original_color)
+            canvas.itemconfig(self._canvas_id, fill=self.color, width=self.grosor)
 
     def to_dict(self):
         return {

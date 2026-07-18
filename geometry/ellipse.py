@@ -68,7 +68,7 @@ class Elipse(Shape):
 
     def restaurar(self, canvas: tk.Canvas):
         if self._canvas_id is not None:
-            canvas.itemconfig(self._canvas_id, outline=self._original_color)
+            canvas.itemconfig(self._canvas_id, outline=self.color, width=self.grosor)
     
     def to_dict(self):
         return {

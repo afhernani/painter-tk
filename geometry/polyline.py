@@ -46,7 +46,7 @@ class Polyline(Shape):
 
     def restaurar(self, canvas: tk.Canvas):
         for cid in self._canvas_ids:
-            canvas.itemconfig(cid, fill=self._original_color)
+            canvas.itemconfig(cid, fill=self.color, width=self.grosor)
 
     def to_dict(self):
         return {
