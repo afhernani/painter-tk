@@ -188,6 +188,15 @@ class CanvasView(tk.Canvas):
         if not isinstance(shape, (Linea, Polyline, PointShape)):
             self.menu_contextual_actual.add_command(label="🪣 Color relleno...", command=self._cambiar_color_relleno)
         
+        self.menu_contextual_actual.add_separator()
+    
+        # NUEVAS OPCIONES: Orden y Eliminar
+        self.menu_contextual_actual.add_command(label="⬆️ Traer al frente", command=self._traer_al_frente)
+        self.menu_contextual_actual.add_command(label="️ Enviar al fondo", command=self._enviar_al_fondo)
+        self.menu_contextual_actual.add_separator()
+        self.menu_contextual_actual.add_command(label="🗑️ Eliminar", command=self._eliminar_shape_seleccionado)
+        
+
         # Mostrar el menú en la posición del ratón
         self.menu_contextual_actual.post(e.x_root, e.y_root)
 
@@ -2225,6 +2234,59 @@ class CanvasView(tk.Canvas):
         elif color and color[1] is None: 
             # Si el usuario elige "Transparente" o cancela de cierta forma en algunos OS
             self.actualizar_relleno_seleccionado('') 
+
+    def _traer_al_frente(self):
+        """Trae la figura seleccionada al frente (encima de todas las demás)"""
+        if not self.shape_seleccionada:
+            return
+        
+        shape = self.shape_seleccionada
+        
+        # Traer al frente en el canvas
+        if shape._canvas_id is not None:
+            self.tag_raise(shape._canvas_id)
+        
+        # También traer al frente los handles si están visibles
+        self.tag_raise('handle')
+        
+        log.info(f"Figura traída al frente: {shape}")
+
+    def _enviar_al_fondo(self):
+        """Envía la figura seleccionada al fondo (debajo de todas las demás)"""
+        if not self.shape_seleccionada:
+            return
+        
+        shape = self.shape_seleccionada
+        
+        # Enviar al fondo en el canvas
+        if shape._canvas_id is not None:
+            self.tag_lower(shape._canvas_id)
+        
+        log.info(f"Figura enviada al fondo: {shape}")
+
+    def _eliminar_shape_seleccionado(self):
+        """Elimina la figura seleccionada del canvas y de la lista"""
+        if not self.shape_seleccionada:
+            return
+        
+        shape = self.shape_seleccionada
+        log.info(f"Eliminando figura: {shape}")
+        
+        # Guardar estado ANTES de eliminar (para que el Undo funcione)
+        self._save_state()
+        
+        # Borrar del canvas
+        if shape._canvas_id is not None:
+            self.delete(shape._canvas_id)
+        
+        # Borrar de la lista de shapes
+        if shape in self.shapes:
+            self.shapes.remove(shape)
+        
+        # Limpiar la selección
+        self._deseleccionar_todo()
+        
+        log.info(f"Figura eliminada: {shape}")
 
     # ------------------
     # Metodos auxiliar
