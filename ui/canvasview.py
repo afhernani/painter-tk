@@ -1173,7 +1173,7 @@ class CanvasView(tk.Canvas):
             if hasattr(shape, 'restaurar'):
                 shape.restaurar(self)
             elif shape.canvas_id is not None:
-                color = self._get_color_fg()
+                color = shape.color
                 if isinstance(shape, (Linea, Polyline)):
                     self.itemconfig(shape.canvas_id, fill=color)
                 else:
