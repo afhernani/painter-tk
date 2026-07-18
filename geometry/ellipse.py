@@ -81,6 +81,19 @@ class Elipse(Shape):
             "relleno": getattr(self, 'relleno', '')
         }
 
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Elipse':
+        """Deserializa una elipse desde un diccionario JSON"""
+        p1 = Punto.from_dict(data["p1"])
+        p2 = Punto.from_dict(data["p2"])
+        return cls(
+            p1=p1,
+            p2=p2,
+            color=data.get("color", "black"),
+            grosor=data.get("grosor", 1.0),
+            relleno=data.get("relleno", "")
+        )
+
     def obtener_punto_eje_x(self) -> Punto:
         """Devuelve el punto en el borde derecho (eje X máximo)"""
         return Punto(self.centro.x + self.radio_x, self.centro.y)

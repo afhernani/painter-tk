@@ -75,6 +75,19 @@ class Rectangulo(Shape):
             "relleno": getattr(self, 'relleno', '')
         }
 
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Rectangulo':
+        """Deserializa un rectángulo desde un diccionario JSON"""
+        p1 = Punto.from_dict(data["p1"])
+        p2 = Punto.from_dict(data["p2"])
+        return cls(
+            p1=p1,
+            p2=p2,
+            color=data.get("color", "black"),
+            grosor=data.get("grosor", 1.0),
+            relleno=data.get("relleno", "")
+        )
+
     def dibujar_en_pil(self, draw):
         """Dibuja el rectángulo en una imagen PIL"""
         bbox = [

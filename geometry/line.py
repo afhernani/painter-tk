@@ -65,6 +65,18 @@ class Linea(Shape):
             "grosor": self.grosor
         }
 
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Linea':
+        """Deserializa una línea desde un diccionario JSON"""
+        p1 = Punto.from_dict(data["p1"])
+        p2 = Punto.from_dict(data["p2"])
+        return cls(
+            p1=p1,
+            p2=p2,
+            color=data.get("color", "black"),
+            grosor=data.get("grosor", 1.0)
+        )
+
     def dibujar_en_pil(self, draw):
         """Dibuja la línea en una imagen PIL"""
         draw.line(

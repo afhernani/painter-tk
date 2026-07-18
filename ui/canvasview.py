@@ -69,6 +69,10 @@ class CanvasView(tk.Canvas):
         # Estado para modo Texto
         self.texto_preview_id = None
         self.texto_posicion = None
+        # modo duplicar elemento
+        self._colocando_duplicado = False
+        self._figura_a_colocar = None
+        self._id_fantasma = None
 
         self.lin_x = None
         self.lin_y = None
@@ -193,7 +197,7 @@ class CanvasView(tk.Canvas):
         # NUEVAS OPCIONES: Orden y Eliminar
         self.menu_contextual_actual.add_command(label="⬆️ Traer al frente", command=self._traer_al_frente)
         self.menu_contextual_actual.add_command(label="️ Enviar al fondo", command=self._enviar_al_fondo)
-        self.menu_contextual_actual.add_command(label="📋 Duplicar", command=self._duplicar_shape_seleccionado)
+        self.menu_contextual_actual.add_command(label="📋 Duplicar", command=self._iniciar_duplicado) # antiguo: _duplicar_shape_seleccionado
         self.menu_contextual_actual.add_separator()
         self.menu_contextual_actual.add_command(label="🗑️ Eliminar", command=self._eliminar_shape_seleccionado)
         
@@ -257,6 +261,8 @@ class CanvasView(tk.Canvas):
         """Actualiza la línea preview para que siga al cursor"""
         self._set_status(f"{e.x, e.y}")
         mode = self._get_mode()
+
+        self._move_elemento_duplicado(e)
         
         # Si estamos en modo línea y ya hemos hecho el primer click
         if mode == 'L' and self.linea_p1 is not None and self.linea_preview is not None:
@@ -361,6 +367,56 @@ class CanvasView(tk.Canvas):
             self._set_status(f"Texto: click para insertar en ({e.x}, {e.y})")
             return
 
+
+    def _move_elemento_duplicado(self, e):
+        """Mover la figura fantasma duplicada siguiendo al raton"""
+        log.info(f"_move_elemento_duplicado: {e.x}, {e.y}")
+        if not getattr(self, '_colocando_duplicado', False) or not self._figura_a_colocar:
+            return
+
+        shape = self._figura_a_colocar
+        
+        # 1. Borrar el fantasma anterior
+        if self._id_fantasma is not None:
+            self.delete(self._id_fantasma)
+        
+        # 2. Actualizar la posición de la figura para que su punto de referencia esté en el ratón
+        if hasattr(shape, 'posicion'): 
+            # Para Texto y PointShape
+            shape.posicion = Punto(e.x, e.y)
+        elif hasattr(shape, 'centro'): 
+            # Para Circulo y Arco
+            shape.centro = Punto(e.x, e.y)
+        elif hasattr(shape, 'p1'): 
+            # Para Linea, Rectangulo, Elipse
+            # Calculamos el desplazamiento para mantener la forma relativa
+            dx = e.x - shape.p1.x
+            dy = e.y - shape.p1.y
+            shape.p1 = Punto(e.x, e.y)
+            if hasattr(shape, 'p2'):
+                shape.p2 = Punto(shape.p2.x + dx, shape.p2.y + dy)
+        elif hasattr(shape, 'puntos'): 
+            # Para Poligono y Polyline
+            if shape.puntos:
+                dx = e.x - shape.puntos[0].x
+                dy = e.y - shape.puntos[0].y
+                shape.puntos = [Punto(p.x + dx, p.y + dy) for p in shape.puntos]
+
+        # 3. Dibujar el nuevo fantasma en la nueva posición
+        self._id_fantasma = shape.dibujar_en(self)
+        
+        # 4. Intentar darle estilo de "fantasma" (línea punteada y color gris)
+        try:
+            # Tkinter usa 'dash' para líneas punteadas. 
+            # Si es texto o forma rellena, 'outline' o 'fill' podrían fallar, por eso el try/except
+            self.itemconfig(self._id_fantasma, dash=(4, 4))
+            if hasattr(shape, 'relleno'):
+                self.itemconfig(self._id_fantasma, outline='gray', fill='')
+            else:
+                self.itemconfig(self._id_fantasma, fill='gray')
+        except tk.TclError:
+            pass # Si el item no soporta dash o fill, lo dejamos normal
+
     # ================================================================
     # PRESS
     # ================================================================
@@ -369,6 +425,8 @@ class CanvasView(tk.Canvas):
         log.info(f'_on_press: press {e.x},{e.y}')
         self.focus_set()
         mode = self._get_mode()
+        
+        self._iniciar_logica_colocar_duplicado(e)
 
         # si no estamos en modo seleccion, cualquier click empieza una accion nueva.
         if mode != 'S':
@@ -534,16 +592,47 @@ class CanvasView(tk.Canvas):
                 log.info(f"Texto creado: {shape}")
                 
             return
-
+        
         if mode == 'P':
             self.puntos_trazo = [Punto(e.x, e.y)]
             self.old_x, self.old_y = e.x, e.y   # Inicializar para el primer segmento
+            return
+        
+    def _iniciar_logica_colocar_duplicado(self, e):
+        """Iniciar Lógica para colocar duplicado en la posicion del click"""
+        
+        log.info(f"_iniciar_logica_colocar_dupliado: {e.x}, {e.y}")
+
+        # --- INICIO: Lógica para colocar duplicado ---
+        if getattr(self, '_colocando_duplicado', False) and self._figura_a_colocar:
+            shape = self._figura_a_colocar
+            
+            # Borrar el fantasma
+            if self._id_fantasma is not None:
+                self.delete(self._id_fantasma)
+            
+            # Dibujar la figura definitivamente
+            shape.dibujar_en(self)
+            self.shapes.append(shape)
+            
+            # Guardar estado y seleccionar la nueva figura
+            self._save_state()
+            self._seleccionar_shape(shape)
+            
+            # Resetear estado
+            self._colocando_duplicado = False
+            self._figura_a_colocar = None
+            self._id_fantasma = None
+            self._actualizar_cursor()
+            log.info("Duplicado colocado con éxito")
             return
 
     def _on_right_click(self, e):
         """Click derecho: finaliza la polyline en progreso"""
         log.info(f"_on_right_click: {e.x}, {e.y}")
         mode = self._get_mode()
+
+        self._cancelar_duplicado()
         
         # Solo actuamos si estamos en modo Polyline
         if mode == 'Pl' and len(self.polyline_puntos) >= 2:
@@ -1456,6 +1545,8 @@ class CanvasView(tk.Canvas):
         """Cancela cualquier dibujo en progreso (línea o polyline)"""
         mode = self._get_mode()
         
+        self._cancelar_duplicado()
+
         if mode == 'L':
             if self.linea_preview is not None:
                 self.delete(self.linea_preview_id)
@@ -1499,6 +1590,19 @@ class CanvasView(tk.Canvas):
                 self.delete(self.texto_preview_id)
                 self.texto_preview_id = None
             self._set_status("Texto cancelado")
+            return
+
+
+    def _cancelar_duplicado(self):
+        """Canelar el duplicado de shape"""
+        if self._colocando_duplicado:
+            if self._id_fantasma is not None:
+                self.delete(self._id_fantasma)
+            self._colocando_duplicado = False
+            self._figura_a_colocar = None
+            self._id_fantasma = None
+            self._actualizar_cursor()
+            self._set_status("Duplicado cancelado")
             return
 
     # ----------------
@@ -2327,6 +2431,31 @@ class CanvasView(tk.Canvas):
             # Esto imprimirá el error exacto en la consola si algo falla
             log.error(f"Error al duplicar la figura: {e}", exc_info=True)
 
+    # ----------------------
+    # duplicado de shape
+    # ----------------------
+    def _iniciar_duplicado(self):
+        """Prepara la figura duplicada para que siga al cursor"""
+        if not self.shape_seleccionada:
+            return
+        
+        shape = self.shape_seleccionada
+        
+        # 1. Crear la copia usando el truco de serialización
+        data = shape.to_dict()
+        shape_class = type(shape)
+        nueva_shape = shape_class.from_dict(data)
+        
+        # 2. Guardar en variables temporales
+        self._figura_a_colocar = nueva_shape
+        self._colocando_duplicado = True
+        
+        # 3. Cambiar el cursor para indicar que estamos "colocando"
+        self.configure(cursor='crosshair')
+        self._set_status("Clic izquierdo para colocar la copia, Escape para cancelar")
+        
+        log.info(f"Iniciando colocación de duplicado de: {shape}")
+
     # ------------------
     # Metodos auxiliar
     # ------------------
@@ -2561,7 +2690,6 @@ class CanvasView(tk.Canvas):
         # 4. Guardamos el estado para el Undo/Redo
         self._save_state()
     
-
     # doble click para propiedades
     def _on_double_click(self, e):
         """Abre la ventana de propiedades si hay algo seleccionado bajo el ratón"""

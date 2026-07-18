@@ -94,6 +94,18 @@ class Poligono(Shape):
             "relleno": getattr(self, 'relleno', '')
         }
 
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Poligono':
+        """Deserializa un polígono desde un diccionario JSON"""
+        # Convertir la lista de diccionarios en una lista de objetos Punto
+        puntos = [Punto.from_dict(p) for p in data["puntos"]]
+        return cls(
+            puntos=puntos,
+            color=data.get("color", "black"),
+            grosor=data.get("grosor", 1.0),
+            relleno=data.get("relleno", "")
+        )
+
     def dibujar_en_pil(self, draw):
         """Dibuja el polígono en una imagen PIL"""
         puntos = []

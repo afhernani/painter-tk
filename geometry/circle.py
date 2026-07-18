@@ -77,6 +77,18 @@ class Circulo(Shape):
             "relleno": getattr(self, 'relleno', '')
         }
 
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Circulo':
+        """Deserializa un círculo desde un diccionario JSON"""
+        centro = Punto.from_dict(data["centro"])
+        return cls(
+            centro=centro,
+            radio=data["radio"],
+            color=data.get("color", "black"),
+            grosor=data.get("grosor", 1.0),
+            relleno=data.get("relleno", "")
+        )
+
     def dibujar_en_pil(self, draw):
         """Dibuja el círculo en una imagen PIL"""
         # PIL dibuja óvalos dentro de un bounding box

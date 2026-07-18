@@ -56,6 +56,16 @@ class Polyline(Shape):
             "grosor": self.grosor
         }
 
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Polyline':
+        """Deserializa una polilínea desde un diccionario JSON"""
+        puntos = [Punto.from_dict(p) for p in data["puntos"]]
+        return cls(
+            puntos=puntos,
+            color=data.get("color", "black"),
+            grosor=data.get("grosor", 1.0)
+        )
+
     def dibujar_en_pil(self, draw):
         """Dibuja la polilínea en una imagen PIL"""
         if len(self.puntos) < 2:

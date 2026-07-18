@@ -24,6 +24,16 @@ class Punto:
         return {"x": self.x, "y": self.y}
 
     @classmethod
+    def from_dict(cls, data: dict) -> 'PointShape':
+        """Deserializa un punto desde un diccionario JSON"""
+        posicion = Punto.from_dict(data["posicion"])
+        return cls(
+            posicion=posicion,
+            radio=data.get("radio", 2.0),
+            color=data.get("color", "black")
+        )
+
+    @classmethod
     def from_dict(cls, data: dict) -> 'Punto':
         """Crear un Punto desde un diccionario"""
         return cls(x=data.get("x",0), y=data.get("y",0))
