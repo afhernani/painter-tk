@@ -339,6 +339,7 @@ class CanvasView(tk.Canvas):
             shape._tag = 'Point'
             shape.dibujar_en(self)
             self.shapes.append(shape)
+            self._save_state()
             log.info(f"Punto creado: {shape}")
             return  # ← Salir inmediatamente, no necesita drag
         
@@ -446,8 +447,8 @@ class CanvasView(tk.Canvas):
                 shape._tag = 'Texto'
                 shape.dibujar_en(self)
                 self.shapes.append(shape)
-                log.info(f"Texto creado: {shape}")
                 self._save_state()
+                log.info(f"Texto creado: {shape}")
                 
             return
 
