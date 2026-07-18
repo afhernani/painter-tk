@@ -227,7 +227,7 @@ class CanvasView(tk.Canvas):
 
     def _find_shape_by_id(self, canvas_id):
         for shape in self.shapes:
-            if shape.canvas_id == canvas_id:
+            if shape._canvas_id == canvas_id:
                 return shape
             # También buscar en _canvas_ids (para Polyline y Circulo)
             if hasattr(shape, '_canvas_ids') and canvas_id in shape._canvas_ids:
@@ -2376,8 +2376,17 @@ class CanvasView(tk.Canvas):
         shape = self.shape_seleccionada
         shape.relleno = nuevo_relleno
         
+        # Borrar todos los canvas IDs de la figura
+        if hasattr(shape, '_canvas_ids') and shape._canvas_ids:
+            for cid in shape._canvas_ids:
+                self.delete(cid)
+            shape._canvas_ids = []
+        elif hasattr(shape, '_canvas_id') and shape._canvas_id is not None:
+            self.delete(shape._canvas_id)
+            shape._canvas_id = None
+
         # Redibujar la figura
-        self.delete(shape._canvas_id)
+        #self.delete(shape._canvas_id)
         shape.dibujar_en(self)
         
         # Si está resaltada (seleccionada), volver a resaltar
@@ -2397,8 +2406,17 @@ class CanvasView(tk.Canvas):
         shape = self.shape_seleccionada
         shape.grosor = float(nuevo_grosor)
         
+        # Borrar todos los canvas IDs de la figura
+        if hasattr(shape, '_canvas_ids') and shape._canvas_ids:
+            for cid in shape._canvas_ids:
+                self.delete(cid)
+            shape._canvas_ids = []
+        elif hasattr(shape, '_canvas_id') and shape._canvas_id is not None:
+            self.delete(shape._canvas_id)
+            shape._canvas_id = None
+
         # Redibujar la figura
-        self.delete(shape._canvas_id)
+        # self.delete(shape._canvas_id)
         shape.dibujar_en(self)
         
         # Si está resaltada, volver a resaltar
