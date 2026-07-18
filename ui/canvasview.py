@@ -2343,12 +2343,21 @@ class CanvasView(tk.Canvas):
         """Actualiza el color de contorno de la figura seleccionada"""
         if not self.shape_seleccionada:
             return
-        
         shape = self.shape_seleccionada
         shape.color = nuevo_color
         
+        # Borrar todos los canvas IDs de la figura
+        if hasattr(shape, '_canvas_ids') and shape._canvas_ids:
+            # Figuras con múltiples IDs (Polyline, etc.)
+            for cid in shape._canvas_ids:
+                self.delete(cid)
+            shape._canvas_ids = []
+        elif hasattr(shape, '_canvas_id') and shape._canvas_id is not None:
+            # Figuras con un solo ID
+            self.delete(shape._canvas_id)
+            shape._canvas_id = None
+        
         # Redibujar la figura
-        self.delete(shape._canvas_id)
         shape.dibujar_en(self)
         
         # Si está resaltada (seleccionada), volver a resaltar
@@ -2357,7 +2366,6 @@ class CanvasView(tk.Canvas):
         
         # Guardar estado para undo/redo
         self._save_state()
-        
         log.info(f"Color actualizado a {nuevo_color} en {shape}")
 
     def actualizar_relleno_seleccionado(self, nuevo_relleno):
