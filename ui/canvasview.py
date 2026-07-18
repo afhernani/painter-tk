@@ -122,7 +122,13 @@ class CanvasView(tk.Canvas):
         self.bind('<Escape>', lambda e: self._cancelar_dibujo())
         self.bind('<Motion>', self._on_mouse_move) # sigue el raton
         self.bind('<Double-Button-1>', self._on_double_click)
+        # En app.py o donde tengas los binds
+        self.master.bind('<Control-z>', lambda e: self.undo())
+        self.master.bind('<Control-y>', lambda e: self.redo())
+        # establecer el foco en el canvasview
         self.focus_set()
+        # guardar estado inicial
+        self._save_state()
         
         log.info("CanvasView inicializado")
 
@@ -1191,6 +1197,7 @@ class CanvasView(tk.Canvas):
             self.coords(self.handle_punto,
                         shape.punto.x - 6, shape.punto.y - 6,
                         shape.punto.x + 6, shape.punto.y + 6)
+        self._save_state()
             
     # -------------------------
     # Línea
@@ -1246,7 +1253,7 @@ class CanvasView(tk.Canvas):
             x, y, x, y,
             dash=(4, 4), fill='gray', width=1
         )
-        
+        self._save_state()
         self._set_status(f"Polyline: {len(self.polyline_puntos)} puntos. Click izq para añadir, click der para finalizar")
 
     def _detectar_segmento_polyline(self, x, y):
