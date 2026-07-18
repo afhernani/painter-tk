@@ -111,8 +111,6 @@ class CanvasView(tk.Canvas):
         self.undo_stack = []
         self.redo_stack = []
         self.max_history = 50  # Límite para no consumir mucha memoria
-
-        self._crear_menu_contextual_texto()
         
         # ----------
         self.bind('<ButtonPress-1>', self._on_press)
