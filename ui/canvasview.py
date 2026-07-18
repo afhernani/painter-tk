@@ -32,7 +32,7 @@ class CanvasView(tk.Canvas):
             bg=color_bg,
             highlightthickness=0
         )
-        
+        self._mode = None
         self.shapes = []
         self.shape_seleccionada = None
         self.tag_trazo_seleccionado = None
@@ -166,7 +166,7 @@ class CanvasView(tk.Canvas):
         self.bind('<ButtonPress-1>', self._on_press)
         self.bind('<B1-Motion>', self._on_motion)
         self.bind('<ButtonRelease-1>', self._on_release)
-        self.bind('<Enter>', lambda e: self.configure(cursor='tcross'))
+        self.bind('<Enter>', lambda e: self._actualizar_cursor())
         self.bind('<Leave>', lambda e: self.configure(cursor=''))
         #self.bind('<Button-1>', self._on_click)
         self.bind('<Delete>', lambda e: self.eliminar_shape_seleccionada())
@@ -187,9 +187,25 @@ class CanvasView(tk.Canvas):
     # def _on_click(self, event):
     #     log.info("_on_click: click")
     #     self.focus_set()
+    def _actualizar_cursor(self):
+        """Actualiza el cursor según el modo actual"""
+        mode = self._get_mode()
+        
+        if mode == 'S':
+            # Modo selección: flecha normal
+            self.configure(cursor='cross')
+        else:
+            # Resto de modos: cruz de dibujo
+            self.configure(cursor='tcross')
 
     def _get_mode(self):
-        return 'L'
+        return self._mode
+
+    def _set_mode(self, mode):
+        """Cambia el modo de dibujo y actualiza el cursor"""
+        self._mode = mode
+        self._actualizar_cursor()
+        log.info(f"Modo cambiado a {mode}")
 
     def _get_width(self):
         return 2.0

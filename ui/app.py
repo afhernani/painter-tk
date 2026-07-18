@@ -135,6 +135,7 @@ class App(tk.Frame):
         self.canvasview._desseleccionar_todo()
         config.set('General', 'default_mode', mode)
         config.save()
+        self.canvasview._set_mode(mode)
         self.statusbar.set_text(f"Mode: {mode}")
     
     def _on_width_change(self, width):
