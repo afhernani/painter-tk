@@ -87,6 +87,51 @@ class Texto(Shape):
         if self._canvas_id is not None:
             canvas.coords(self._canvas_id, self.posicion.x, self.posicion.y)
     
+    def dibujar_en_pil(self, draw):
+        """Dibuja el texto en una imagen PIL"""
+        try:
+            from PIL import ImageFont
+            
+            # Construir el nombre de la fuente según el estilo
+            font_name = self.fuente
+            font_size = self.tamaño
+            
+            # Intentar cargar la fuente TrueType
+            try:
+                # Mapear estilos a variantes de fuente comunes
+                if self.negrita and self.cursiva:
+                    font_path = f"{font_name} Bold Italic.ttf"
+                elif self.negrita:
+                    font_path = f"{font_name} Bold.ttf"
+                elif self.cursiva:
+                    font_path = f"{font_name} Italic.ttf"
+                else:
+                    font_path = f"{font_name}.ttf"
+                
+                font = ImageFont.truetype(font_path, font_size)
+            except (IOError, OSError):
+                # Si no encuentra la fuente específica, usar la fuente por defecto
+                try:
+                    font = ImageFont.truetype("arial.ttf", font_size)
+                except (IOError, OSError):
+                    # Último recurso: fuente por defecto de PIL
+                    font = ImageFont.load_default()
+            
+            # Dibujar el texto
+            # Nota: PIL dibuja desde la esquina superior izquierda del texto
+            # Ajustamos la posición para centrar el texto en el punto especificado
+            draw.text(
+                (self.posicion.x, self.posicion.y),
+                self.texto,
+                fill=self.color,
+                font=font
+            )
+            
+        except Exception as e:
+            import logging
+            log = logging.getLogger('Geometry.Texto')
+            log.warning(f"Error al dibujar texto en PIL: {e}")
+
     def to_dict(self) -> dict:
         """Serializa el texto a diccionario para JSON"""
         return {
