@@ -119,7 +119,7 @@ class CanvasView(tk.Canvas):
         #self.bind('<Button-1>', self._on_click)
         self.bind('<Delete>', lambda e: self.eliminar_shape_seleccionada())
         self.bind('<ButtonPress-3>', self._on_right_click)   # Click derecho → finalizar
-        self.bind('<Escape>', lambda e: self.self._cancelar_dibujo())
+        self.bind('<Escape>', lambda e: self._cancelar_dibujo())
         self.bind('<Motion>', self._on_mouse_move) # sigue el raton
         self.bind('<Double-Button-1>', self._on_double_click)
         self.focus_set()
@@ -415,7 +415,10 @@ class CanvasView(tk.Canvas):
         # ── MODO TEXTO: click → abre diálogo → crea texto ──
         if mode == 'T':
             from tkinter import simpledialog
-            
+            # Limpiar preview
+            if self.texto_preview_id is not None:
+                self.delete(self.texto_preview_id)
+                self.texto_preview_id = None
             # Abrir diálogo para escribir el texto
             texto_ingresado = simpledialog.askstring(
                 "Insertar Texto",
@@ -439,7 +442,7 @@ class CanvasView(tk.Canvas):
                 self.shapes.append(shape)
                 log.info(f"Texto creado: {shape}")
                 self._save_state()
-            
+                
             return
 
         if mode == 'P':
@@ -1112,6 +1115,10 @@ class CanvasView(tk.Canvas):
 
         # 3. Como red de seguridad, intentar borrar por tag también
         self.delete('handle')
+        # Limpiar preview de texto
+        if self.texto_preview_id is not None:
+            self.delete(self.texto_preview_id)
+            self.texto_preview_id = None
         # resetear todas las variables de estado.
         self.shape_seleccionada = None
         self.tag_trazo_seleccionado = None
