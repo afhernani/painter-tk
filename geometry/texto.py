@@ -18,7 +18,7 @@ class Texto(Shape):
     def __init__(self, posicion: Punto, texto: str = "Texto",
                  fuente: str = "Arial", tamaño: int = 12,
                  color: str = "black", negrita: bool = False,
-                 cursiva: bool = False, **kwargs):
+                 cursiva: bool = False, alineacion: str="center", **kwargs):
         super().__init__(color=color, **kwargs)
         self.posicion = posicion
         self.texto = texto
@@ -26,6 +26,7 @@ class Texto(Shape):
         self.tamaño = tamaño
         self.negrita = negrita
         self.cursiva = cursiva
+        self.alineacion = alineacion
     
     def _construir_fuente(self) -> str:
         """Construye la cadena de fuente para Tkinter"""
@@ -44,14 +45,20 @@ class Texto(Shape):
     def dibujar_en(self, canvas: tk.Canvas) -> int:
         """Dibuja el texto en el canvas"""
         fuente_str = self._construir_fuente()
-        
+        # Mapear alineación a anchor de Tkinter
+        anchor_map = {
+            "left": tk.W,
+            "center": tk.CENTER,
+            "right": tk.E
+        }
+        anchor = anchor_map.get(self.alineacion, tk.CENTER)
         self._canvas_id = canvas.create_text(
             self.posicion.x,
             self.posicion.y,
             text=self.texto,
             font=fuente_str,
             fill=self.color,
-            anchor=tk.CENTER
+            anchor=anchor
         )
         return self._canvas_id
     
@@ -142,7 +149,8 @@ class Texto(Shape):
             "tamaño": self.tamaño,
             "color": self.color,
             "negrita": self.negrita,
-            "cursiva": self.cursiva
+            "cursiva": self.cursiva,
+            "alineacion": self.alineacion
         }
     
     @classmethod
@@ -162,7 +170,8 @@ class Texto(Shape):
             tamaño=data.get("tamaño", 12),
             color=data.get("color", "black"),
             negrita=data.get("negrita", False),
-            cursiva=data.get("cursiva", False)
+            cursiva=data.get("cursiva", False),
+            alineacion=data.get("alineacion", "center")
         )
     
     def __repr__(self):

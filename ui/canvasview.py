@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import tkinter as tk
+from tkinter import simpledialog, colorchooser, font
 import math, copy
 import logging
 from utilitygraph import rectasCircunferencia, rectasRectangulo
@@ -111,6 +112,57 @@ class CanvasView(tk.Canvas):
         self.redo_stack = []
         self.max_history = 50  # Límite para no consumir mucha memoria
 
+        # Menú contextual para Texto
+        self.menu_texto = tk.Menu(self, tearoff=0)
+        self.menu_texto.add_command(label="✏️ Editar texto...", command=self._editar_texto_seleccionado)
+        self.menu_texto.add_separator()
+
+        # Submenú de Fuentes
+        self.submenu_fuente = tk.Menu(self.menu_texto, tearoff=0)
+        for f in ["Arial", "Times New Roman", "Courier New", "Verdana", "Georgia", "Comic Sans MS"]:
+            self.submenu_fuente.add_command(label=f, command=lambda fn=f: self._cambiar_fuente_texto(fn))
+        self.menu_texto.add_cascade(label="🔤 Fuente", menu=self.submenu_fuente)
+
+        # Submenú de Tamaños
+        self.submenu_tamano = tk.Menu(self.menu_texto, tearoff=0)
+        for t in [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72]:
+            self.submenu_tamano.add_command(label=str(t), command=lambda sz=t: self._cambiar_tamano_texto(sz))
+        self.menu_texto.add_cascade(label="📏 Tamaño", menu=self.submenu_tamano)
+
+        # Color
+        self.menu_texto.add_command(label="🎨 Color...", command=self._cambiar_color_texto)
+        self.menu_texto.add_separator()
+
+        # Negrita y Cursiva (con variables de estado para mostrar check)
+        self.var_negrita = tk.BooleanVar(value=False)
+        self.var_cursiva = tk.BooleanVar(value=False)
+        self.menu_texto.add_checkbutton(label="**B** Negrita", variable=self.var_negrita, command=self._toggle_negrita_texto)
+        self.menu_texto.add_checkbutton(label="*I* Cursiva", variable=self.var_cursiva, command=self._toggle_cursiva_texto)
+        
+        # Submenú de Alineación
+        self.submenu_alineacion = tk.Menu(self.menu_texto, tearoff=0)
+        self.var_alineacion = tk.StringVar(value="center")
+        self.submenu_alineacion.add_radiobutton(
+            label="⬅ Izquierda", 
+            variable=self.var_alineacion, 
+            value="left",
+            command=lambda: self._cambiar_alineacion_texto("left")
+        )
+        self.submenu_alineacion.add_radiobutton(
+            label="↔ Centro", 
+            variable=self.var_alineacion, 
+            value="center",
+            command=lambda: self._cambiar_alineacion_texto("center")
+        )
+        self.submenu_alineacion.add_radiobutton(
+            label="➡ Derecha", 
+            variable=self.var_alineacion, 
+            value="right",
+            command=lambda: self._cambiar_alineacion_texto("right")
+        )
+        self.menu_texto.add_cascade(label=" Alineación", menu=self.submenu_alineacion)
+        
+        # ----------
         self.bind('<ButtonPress-1>', self._on_press)
         self.bind('<B1-Motion>', self._on_motion)
         self.bind('<ButtonRelease-1>', self._on_release)
@@ -469,6 +521,27 @@ class CanvasView(tk.Canvas):
             # Solo hay un punto, no se puede crear polyline
             self._cancelar_polyline()
             self._set_status("Polyline cancelada: se necesitan al menos 2 puntos")
+        
+        # Si estamos en modo Selección, verificar si hay un Texto bajo el cursor
+        if mode == 'S':
+            # Buscar si hay un Texto en la posición del clic
+            halo = 8
+            encontrados = self.find_overlapping(e.x - halo, e.y - halo, e.x + halo, e.y + halo)
+            
+            for item_id in reversed(encontrados):
+                tags = self.gettags(item_id)
+                if 'handle' in tags:
+                    continue
+                shape = self._find_shape_by_id(item_id)
+                if shape is not None and isinstance(shape, Texto):
+                    # ¡Es un Texto! Mostrar menú contextual
+                    self.shape_seleccionada = shape
+                    self._actualizar_estado_menu_texto(shape)
+                    self.menu_texto.post(e.x_root, e.y_root)
+                    return
+            
+            # Si no es un Texto, deseleccionar
+            self._deseleccionar_todo()
 
     # ================================================================
     # MOTION
@@ -1988,6 +2061,120 @@ class CanvasView(tk.Canvas):
                 
                 self.tag_raise('handle')
                 log.info(f"Handles texto creados en bbox: {bbox}")
+
+    def _actualizar_estado_menu_texto(self, shape: Texto):
+        """Actualiza el estado de los checkbuttons del menú según el texto seleccionado"""
+        self.var_negrita.set(shape.negrita)
+        self.var_cursiva.set(shape.cursiva)
+        self.var_alineacion.set(shape.alineacion)
+
+    def _editar_texto_seleccionado(self):
+        """Abre diálogo para editar el contenido del texto"""
+        if not self.shape_seleccionada or not isinstance(self.shape_seleccionada, Texto):
+            return
+        
+        shape = self.shape_seleccionada
+        nuevo_texto = simpledialog.askstring(
+            "Editar Texto",
+            "Nuevo contenido:",
+            initialvalue=shape.texto
+        )
+        
+        if nuevo_texto is not None and nuevo_texto != shape.texto:
+            shape.texto = nuevo_texto
+            # Redibujar
+            self.delete(shape._canvas_id)
+            shape.dibujar_en(self)
+            self._save_state()
+            log.info(f"Texto editado: {shape}")
+
+    def _cambiar_fuente_texto(self, nueva_fuente: str):
+        """Cambia la fuente del texto seleccionado"""
+        if not self.shape_seleccionada or not isinstance(self.shape_seleccionada, Texto):
+            return
+        
+        shape = self.shape_seleccionada
+        shape.fuente = nueva_fuente
+        self.delete(shape._canvas_id)
+        shape.dibujar_en(self)
+        self._save_state()
+        log.info(f"Fuente cambiada a {nueva_fuente} en {shape}")
+
+    def _cambiar_tamano_texto(self, nuevo_tamano: int):
+        """Cambia el tamaño del texto seleccionado"""
+        if not self.shape_seleccionada or not isinstance(self.shape_seleccionada, Texto):
+            return
+        
+        shape = self.shape_seleccionada
+        shape.tamaño = nuevo_tamano
+        self.delete(shape._canvas_id)
+        shape.dibujar_en(self)
+        self._save_state()
+        log.info(f"Tamaño cambiado a {nuevo_tamano} en {shape}")
+
+    def _cambiar_color_texto(self):
+        """Abre color picker para cambiar el color del texto"""
+        if not self.shape_seleccionada or not isinstance(self.shape_seleccionada, Texto):
+            return
+        
+        shape = self.shape_seleccionada
+        color = colorchooser.askcolor(
+            initialcolor=shape.color,
+            title="Color del texto"
+        )
+        
+        if color and color[1]:  # color[1] es el hex string
+            shape.color = color[1]
+            self.delete(shape._canvas_id)
+            shape.dibujar_en(self)
+            self._save_state()
+            log.info(f"Color cambiado a {color[1]} en {shape}")
+
+    def _toggle_negrita_texto(self):
+        """Activa/desactiva negrita en el texto seleccionado"""
+        if not self.shape_seleccionada or not isinstance(self.shape_seleccionada, Texto):
+            return
+        
+        shape = self.shape_seleccionada
+        shape.negrita = not shape.negrita
+        self.var_negrita.set(shape.negrita)
+        self.delete(shape._canvas_id)
+        shape.dibujar_en(self)
+        self._save_state()
+        log.info(f"Negrita {'activada' if shape.negrita else 'desactivada'} en {shape}")
+
+    def _toggle_cursiva_texto(self):
+        """Activa/desactiva cursiva en el texto seleccionado"""
+        if not self.shape_seleccionada or not isinstance(self.shape_seleccionada, Texto):
+            return
+        
+        shape = self.shape_seleccionada
+        shape.cursiva = not shape.cursiva
+        self.var_cursiva.set(shape.cursiva)
+        self.delete(shape._canvas_id)
+        shape.dibujar_en(self)
+        self._save_state()
+        log.info(f"Cursiva {'activada' if shape.cursiva else 'desactivada'} en {shape}")
+
+    def _cambiar_alineacion_texto(self, nueva_alineacion: str):
+        """Cambia la alineación del texto seleccionado"""
+        if not self.shape_seleccionada or not isinstance(self.shape_seleccionada, Texto):
+            return
+        
+        shape = self.shape_seleccionada
+        shape.alineacion = nueva_alineacion
+        self.var_alineacion.set(nueva_alineacion)
+        
+        # Redibujar
+        self.delete(shape._canvas_id)
+        shape.dibujar_en(self)
+        
+        # Si está resaltada, volver a resaltar
+        if hasattr(shape, 'resaltar'):
+            shape.resaltar(self, 'red')
+        
+        self._save_state()
+        log.info(f"Alineación cambiada a {nueva_alineacion} en {shape}")
 
     # ------------------
     # Metodos auxiliar
