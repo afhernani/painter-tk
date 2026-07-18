@@ -193,6 +193,7 @@ class CanvasView(tk.Canvas):
         # NUEVAS OPCIONES: Orden y Eliminar
         self.menu_contextual_actual.add_command(label="⬆️ Traer al frente", command=self._traer_al_frente)
         self.menu_contextual_actual.add_command(label="️ Enviar al fondo", command=self._enviar_al_fondo)
+        self.menu_contextual_actual.add_command(label="📋 Duplicar", command=self._duplicar_shape_seleccionado)
         self.menu_contextual_actual.add_separator()
         self.menu_contextual_actual.add_command(label="🗑️ Eliminar", command=self._eliminar_shape_seleccionado)
         
@@ -2287,6 +2288,44 @@ class CanvasView(tk.Canvas):
         self._deseleccionar_todo()
         
         log.info(f"Figura eliminada: {shape}")
+
+    def _duplicar_shape_seleccionado(self):
+        """Duplica la figura seleccionada y la desplaza ligeramente"""
+        if not self.shape_seleccionada:
+            log.warning("No hay figura seleccioando para duplicar")
+            return
+        shape = self.shape_seleccionada
+        log.info(f"Intentando duplicar figura: {shape}")
+        try:
+            # 1. Serializar y deserializar para crear una copia independiente
+            data = shape.to_dict()
+            shape_class = type(shape)
+            
+            if not hasattr(shape_class, 'from_dict'):
+                log.error(f"La clase {shape_class.__name__} no tiene método from_dict")
+                return
+                
+            nueva_shape = shape_class.from_dict(data)
+            
+            # 2. Desplazar la copia 20 píxeles para que sea visible
+            if hasattr(nueva_shape, 'mover'):
+                nueva_shape.mover(20, 20)
+            else:
+                log.warning(f"La clase {shape_class.__name__} no tiene método mover")
+            
+            # 3. Añadir a la lista y dibujar
+            self.shapes.append(nueva_shape)
+            nueva_shape.dibujar_en(self)
+            
+            # 4. Guardar estado y seleccionar
+            self._save_state()
+            self._seleccionar_shape(nueva_shape)
+            
+            log.info(f"Figura duplicada con éxito: {nueva_shape}")
+            
+        except Exception as e:
+            # Esto imprimirá el error exacto en la consola si algo falla
+            log.error(f"Error al duplicar la figura: {e}", exc_info=True)
 
     # ------------------
     # Metodos auxiliar
