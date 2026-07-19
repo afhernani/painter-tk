@@ -6,7 +6,9 @@ from .point import Punto
 from .shape import Shape
 import tkinter as tk
 from typing import Tuple
+import logging
 
+log = logging.getLogger('Geometry.elipse')
 
 class Elipse(Shape):
     """Representa una elipse definida por centro y radios"""
@@ -69,7 +71,41 @@ class Elipse(Shape):
     def restaurar(self, canvas: tk.Canvas):
         if self._canvas_id is not None:
             canvas.itemconfig(self._canvas_id, outline=self.color, width=self.grosor)
-    
+
+    def _finalizar_elipse(self, x, y):
+        """Borra la preview y crea la Elipse definitiva"""
+        if self.elipse_preview_id is not None:
+            self.delete(self.elipse_preview_id)
+            self.elipse_preview_id = None
+        
+        radio_x = abs(x - self.elipse_centro.x)
+        radio_y = abs(y - self.elipse_centro.y)
+        
+        if radio_x < 2 or radio_y < 2:
+            self.elipse_centro = None
+            return
+        
+        width = self.grosor 
+        color = self.color
+        relleno = self.grosor
+        
+        # ✅ CORREGIDO: usar radio_x y radio_y como argumentos nombrados
+        shape = Elipse(
+            centro=self.elipse_centro,
+            radio_x=radio_x,
+            radio_y=radio_y,
+            color=color,
+            grosor=width,
+            relleno=relleno
+        )
+        shape._tag = 'Elipse'
+        shape.dibujar_en(self)
+        self.shapes.append(shape)
+        log.info(f"Elipse creada: {shape}")
+        self.elipse_centro = None
+        self._set_status("Elipse creada")
+        self._save_state()
+
     def to_dict(self) -> dict:
         return {
             "type": "Elipse",
