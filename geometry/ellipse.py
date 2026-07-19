@@ -89,7 +89,7 @@ class Elipse(Shape):
         color = self.color
         relleno = self.grosor
         
-        # ✅ CORREGIDO: usar radio_x y radio_y como argumentos nombrados
+        # usar radio_x y radio_y como argumentos nombrados
         shape = Elipse(
             centro=self.elipse_centro,
             radio_x=radio_x,
