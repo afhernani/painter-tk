@@ -70,7 +70,7 @@ class Elipse(Shape):
         if self._canvas_id is not None:
             canvas.itemconfig(self._canvas_id, outline=self.color, width=self.grosor)
     
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             "type": "Elipse",
             "centro": self.centro.to_dict(),
@@ -84,11 +84,16 @@ class Elipse(Shape):
     @classmethod
     def from_dict(cls, data: dict) -> 'Elipse':
         """Deserializa una elipse desde un diccionario JSON"""
-        p1 = Punto.from_dict(data["p1"])
-        p2 = Punto.from_dict(data["p2"])
+        centro_data = data.get("centro", {"x": 0, "y": 0})
+        if isinstance(centro_data, dict):
+            centro = Punto.from_dict(centro_data)
+        else:
+            centro = centro_data
+        
         return cls(
-            p1=p1,
-            p2=p2,
+            centro=centro,
+            radio_x=data.get("radio_x", 10.0),
+            radio_y=data.get("radio_y", 10.0),
             color=data.get("color", "black"),
             grosor=data.get("grosor", 1.0),
             relleno=data.get("relleno", "")

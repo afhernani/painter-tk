@@ -82,13 +82,12 @@ class Poligono(Shape):
         if self._canvas_id is not None:
             canvas.itemconfig(self._canvas_id, outline=self.color, width=self.grosor)
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             "type": "Poligono",
             "centro": self.centro.to_dict(),
             "radio": self.radio,
             "lados": self.lados,
-            "rotacion": getattr(self, 'rotacion', -1.5707963267948966), # Valor por defecto si no existe
             "color": self.color,
             "grosor": self.grosor,
             "relleno": getattr(self, 'relleno', '')
@@ -97,10 +96,16 @@ class Poligono(Shape):
     @classmethod
     def from_dict(cls, data: dict) -> 'Poligono':
         """Deserializa un polígono desde un diccionario JSON"""
-        # Convertir la lista de diccionarios en una lista de objetos Punto
-        puntos = [Punto.from_dict(p) for p in data["puntos"]]
+        centro_data = data.get("centro", {"x": 0, "y": 0})
+        if isinstance(centro_data, dict):
+            centro = Punto.from_dict(centro_data)
+        else:
+            centro = centro_data
+        
         return cls(
-            puntos=puntos,
+            centro=centro,
+            radio=data.get("radio", 10.0),
+            lados=data.get("lados", 6),
             color=data.get("color", "black"),
             grosor=data.get("grosor", 1.0),
             relleno=data.get("relleno", "")
