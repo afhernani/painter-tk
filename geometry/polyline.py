@@ -8,7 +8,7 @@ class Polyline(Shape):
     
     def __init__(self, puntos: list[Punto], **kwargs):
         super().__init__(**kwargs)
-        self.puntos = puntos
+        self.puntos = [Punto(p.x, p.y) for p in puntos]
         self._lineas = [
             Linea(puntos[i], puntos[i+1], **kwargs)
             for i in range(len(puntos) - 1)
