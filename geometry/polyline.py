@@ -63,7 +63,7 @@ class Polyline(Shape):
     @classmethod
     def from_dict(cls, data: dict) -> 'Polyline':
         """Deserializa una polilínea desde un diccionario JSON"""
-        puntos = [Punto.from_dict(p) for p in data["puntos"]]
+        puntos = [Punto(p["x"], p["y"]) for p in data["puntos"]]
         return cls(
             puntos=puntos,
             color=data.get("color", "black"),
