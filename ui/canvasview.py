@@ -843,11 +843,21 @@ class CanvasView(tk.Canvas):
                     if tag.startswith('handle_polyline_'):
                         idx = int(tag.split('_')[-1])
                         handle_detectado = f'polyline_{idx}'
-                        # Buscar la polyline por tipo
-                        for shape in self.shapes:
-                            if isinstance(shape, Polyline):
-                                self._seleccionar_shape(shape)
-                                break
+                        # ✅ Buscar la polyline correcta usando el tag fig_{id}
+                        fig_tag = next((t for t in tags if t.startswith('fig_')), None)
+                        if fig_tag and fig_tag != 'fig_None':
+                            try:
+                                fig_id = int(fig_tag.split('_')[1])
+                                for shape in self.shapes:
+                                    # Las Polylines usan _canvas_ids (lista), no _canvas_id
+                                    if hasattr(shape, '_canvas_ids') and fig_id in shape._canvas_ids:
+                                        self._seleccionar_shape(shape)
+                                        break
+                                    elif shape._canvas_id == fig_id:
+                                        self._seleccionar_shape(shape)
+                                        break
+                            except (ValueError, IndexError):
+                                log.error(f"Error detectando polyline: tag = {fig_tag}")
                         break
             # Polígono
             elif 'handle_poligono_centro' in tags:
