@@ -31,6 +31,10 @@ class Polyline(Shape):
     def mover(self, dx, dy):
         for p in self.puntos:
             p.mover(dx, dy)
+        # También mover los puntos de las líneas internas
+        # for linea in self._lineas:
+        #     linea.p1.mover(dx, dy)
+        #     linea.p2.mover(dx, dy)
 
     def actualizar_en_canvas(self, canvas: tk.Canvas):
         for i, linea in enumerate(self._lineas):

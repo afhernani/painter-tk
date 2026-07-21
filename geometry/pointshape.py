@@ -60,6 +60,22 @@ class PointShape(Shape):
             "grosor": self.grosor
         }
 
+    @classmethod
+    def from_dict(cls, data: dict) -> 'PointShape':
+        """Deserializa un punto desde un diccionario JSON"""
+        punto_data = data.get("punto", {"x": 0, "y": 0})
+        if isinstance(punto_data, dict):
+            punto = Punto.from_dict(punto_data)
+        else:
+            punto = punto_data
+        
+        return cls(
+            punto=punto,
+            radio=data.get("radio", 3.0),
+            color=data.get("color", "black"),
+            grosor=data.get("grosor", 1.0)
+        )
+
     def dibujar_en_pil(self, draw):
         """Dibuja el punto en una imagen PIL"""
         r = self.radio

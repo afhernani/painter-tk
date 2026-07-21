@@ -377,7 +377,11 @@ class CanvasView(tk.Canvas):
         
         # 1. Borrar el fantasma anterior
         if self._id_fantasma is not None:
-            self.delete(self._id_fantasma)
+            if isinstance(self._id_fantasma, list):
+                for fid in self._id_fantasma:
+                    self.delete(fid)
+            else:
+                self.delete(self._id_fantasma)
         
         # 2. Actualizar la posición según el tipo de figura (usando isinstance para precisión)
         if isinstance(shape, Texto):
@@ -402,6 +406,13 @@ class CanvasView(tk.Canvas):
         elif isinstance(shape, Elipse):
             # Elipse: punto de referencia = centro (con rx, ry)
             shape.centro = Punto(e.x, e.y)
+        
+        elif isinstance(shape, Polyline):
+            # Polyline: punto de referencia = primer punto (manteniendo la forma)
+            if shape.puntos:
+                dx = e.x - shape.puntos[0].x
+                dy = e.y - shape.puntos[0].y
+                shape.mover(dx, dy)  # Usar el método mover en lugar de crear nuevos puntos
             
         elif isinstance(shape, Rectangulo):
             # Rectángulo: punto de referencia = centro (calculado desde p1, p2)
@@ -423,23 +434,21 @@ class CanvasView(tk.Canvas):
             shape.p1 = Punto(e.x, e.y)
             shape.p2 = Punto(shape.p2.x + dx, shape.p2.y + dy)
             
-        elif isinstance(shape, Polyline):
-            # Polyline: punto de referencia = primer punto (manteniendo la forma)
-            if shape.puntos:
-                dx = e.x - shape.puntos[0].x
-                dy = e.y - shape.puntos[0].y
-                shape.puntos = [Punto(p.x + dx, p.y + dy) for p in shape.puntos]
         
         # 3. Dibujar el nuevo fantasma en la nueva posición
         self._id_fantasma = shape.dibujar_en(self)
         
         # 4. Intentar darle estilo de "fantasma" (línea punteada y color gris)
         try:
-            self.itemconfig(self._id_fantasma, dash=(4, 4))
-            if hasattr(shape, 'relleno'):
-                self.itemconfig(self._id_fantasma, outline='gray', fill='')
+            if isinstance(self._id_fantasma, list):
+                for fid in self._id_fantasma:
+                    self.itemconfig(fid, dash=(4, 4), outline='gray')
             else:
-                self.itemconfig(self._id_fantasma, fill='gray')
+                self.itemconfig(self._id_fantasma, dash=(4, 4))
+                if hasattr(shape, 'relleno'):
+                    self.itemconfig(self._id_fantasma, outline='gray', fill='')
+                else:
+                    self.itemconfig(self._id_fantasma, fill='gray')
         except tk.TclError:
             pass  # Si el item no soporta dash o fill, lo dejamos normal
 
@@ -627,52 +636,41 @@ class CanvasView(tk.Canvas):
             return
 
     def _iniciar_logica_colocar_duplicado(self, e):
-        """Coloca la copia en la posición del clic. Retorna True si se colocó, False si no estaba en modo duplicar."""
-        if not getattr(self, '_colocando_duplicado', False) or not self._figura_a_colocar:
-            return False
+        """Iniciar Lógica para colocar duplicado en la posicion del click"""
+        # log.info(f"_iniciar_logica_colocar_dupliado: {e.x}, {e.y}")
         
-        shape = self._figura_a_colocar
-        
-        # 1. Calcular el desplazamiento desde la posición original hasta el clic
-        # Necesitamos saber dónde estaba la figura original para mover la copia
-        # Usamos la figura seleccionada como referencia de posición original
-        if self.shape_seleccionada:
-            original = self.shape_seleccionada
+        if getattr(self, '_colocando_duplicado', False) and self._figura_a_colocar:
+            shape = self._figura_a_colocar
             
-            # Obtener el punto de referencia según el tipo de figura
-            if hasattr(original, 'posicion') and hasattr(shape, 'posicion'):
-                dx = e.x - original.posicion.x
-                dy = e.y - original.posicion.y
-            elif hasattr(original, 'centro') and hasattr(shape, 'centro'):
-                dx = e.x - original.centro.x
-                dy = e.y - original.centro.y
-            elif hasattr(original, 'p1') and hasattr(shape, 'p1'):
-                dx = e.x - original.p1.x
-                dy = e.y - original.p1.y
-            elif hasattr(original, 'puntos') and hasattr(shape, 'puntos') and original.puntos:
-                dx = e.x - original.puntos[0].x
-                dy = e.y - original.puntos[0].y
-            else:
-                dx, dy = 0, 0
+            # mover la figura a la posición exacta del clic antes de dibujarla
+            self._move_elemento_duplicado(e)
             
-            # 2. Mover la copia a la nueva posición
-            shape.mover(dx, dy)
+            # Borrar el fantasma
+            if self._id_fantasma is not None:
+                if isinstance(self._id_fantasma, list):
+                    for fid in self._id_fantasma:
+                        self.delete(fid)
+                else:
+                    self.delete(self._id_fantasma)
+            
+            # Dibujar la figura definitivamente
+            shape.dibujar_en(self)
+            self.shapes.append(shape)
+            
+            # Guardar estado y seleccionar la nueva figura
+            self._save_state()
+            self._seleccionar_shape(shape)
+            
+            # Resetear estado
+            self._colocando_duplicado = False
+            self._figura_a_colocar = None
+            self._id_fantasma = None
+            self._actualizar_cursor()
+            
+            log.info(f"Duplicado colocado con éxito en ({e.x}, {e.y})")
+            return True
         
-        # 3. Dibujar la figura definitivamente
-        shape.dibujar_en(self)
-        self.shapes.append(shape)
-        
-        # 4. Guardar estado y seleccionar la nueva figura
-        self._save_state()
-        self._seleccionar_shape(shape)
-        
-        # 5. Resetear estado
-        self._colocando_duplicado = False
-        self._figura_a_colocar = None
-        self._actualizar_cursor()
-        
-        log.info(f"Duplicado colocado con éxito: {shape}")
-        return True
+        return False
 
     def _on_right_click(self, e):
         """Click derecho: finaliza la polyline en progreso"""
