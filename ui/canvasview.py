@@ -843,7 +843,7 @@ class CanvasView(tk.Canvas):
                     if tag.startswith('handle_polyline_'):
                         idx = int(tag.split('_')[-1])
                         handle_detectado = f'polyline_{idx}'
-                        # ✅ Buscar la polyline correcta usando el tag fig_{id}
+                        # Buscar la polyline correcta usando el tag fig_{id}
                         fig_tag = next((t for t in tags if t.startswith('fig_')), None)
                         if fig_tag and fig_tag != 'fig_None':
                             try:
