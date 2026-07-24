@@ -43,11 +43,13 @@ class Polyline(Shape):
         ]
 
     def actualizar_en_canvas(self, canvas: tk.Canvas):
-        for i, linea in enumerate(self._lineas):
+        """Actualiza todas las líneas en el canvas usando los puntos actuales"""
+        for i in range(len(self.puntos) - 1):
             if i < len(self._canvas_ids):
                 canvas.coords(
                     self._canvas_ids[i],
-                    linea.p1.x, linea.p1.y, linea.p2.x, linea.p2.y
+                    self.puntos[i].x, self.puntos[i].y,
+                    self.puntos[i + 1].x, self.puntos[i + 1].y
                 )
 
     def resaltar(self, canvas: tk.Canvas, color: str = 'red'):
