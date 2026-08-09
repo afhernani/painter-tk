@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import math
 import tkinter as tk
-from .shape import Shape
+from .shape import Shape, _screen_coords
 from .point import Punto
 
 class Circulo(Shape):
@@ -26,12 +26,19 @@ class Circulo(Shape):
         return coords
 
     def dibujar_en(self, canvas: tk.Canvas) -> int:
-        coords = self._generar_coords()
-        self._canvas_id = canvas.create_line(
-            *coords,
-            fill=self.color,
+        # Dibujar usando un óvalo (mejor soporte de relleno y rendimiento)
+        x1w = self.centro.x - self.radio
+        y1w = self.centro.y - self.radio
+        x2w = self.centro.x + self.radio
+        y2w = self.centro.y + self.radio
+        x1, y1 = canvas.world_to_screen(x1w, y1w)
+        x2, y2 = canvas.world_to_screen(x2w, y2w)
+        fill_color = self.relleno if getattr(self, 'relleno', '') else ''
+        self._canvas_id = canvas.create_oval(
+            x1, y1, x2, y2,
+            outline=self.color,
+            fill=fill_color,
             width=self.grosor,
-            smooth=False,
             tags=(self._tag_unico,)
         )
         self._canvas_ids = [self._canvas_id]
@@ -48,16 +55,23 @@ class Circulo(Shape):
 
     def actualizar_en_canvas(self, canvas: tk.Canvas):
         if self._canvas_id is not None:
-            coords = self._generar_coords()
-            canvas.coords(self._canvas_id, *coords)
+            x1w = self.centro.x - self.radio
+            y1w = self.centro.y - self.radio
+            x2w = self.centro.x + self.radio
+            y2w = self.centro.y + self.radio
+            x1, y1 = canvas.world_to_screen(x1w, y1w)
+            x2, y2 = canvas.world_to_screen(x2w, y2w)
+            canvas.coords(self._canvas_id, x1, y1, x2, y2)
 
     def resaltar(self, canvas: tk.Canvas, color: str = 'red'):
         if self._canvas_id is not None:
-            canvas.itemconfig(self._canvas_id, fill=color)
+            # Resaltar cambiando el contorno (outline) para mantener el relleno
+            canvas.itemconfig(self._canvas_id, outline=color)
 
     def restaurar(self, canvas: tk.Canvas):
         if self._canvas_id is not None:
-            canvas.itemconfig(self._canvas_id, fill=self.color, width=self.grosor)
+            fill_color = self.relleno if getattr(self, 'relleno', '') else ''
+            canvas.itemconfig(self._canvas_id, outline=self.color, fill=fill_color, width=self.grosor)
 
     def obtener_punto_perimetro(self) -> Punto:
         """Devuelve un punto en el perímetro (a la derecha del centro)"""

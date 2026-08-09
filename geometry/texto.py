@@ -3,7 +3,7 @@
 Clase Texto para representar elementos de texto en el canvas.
 """
 import tkinter as tk
-from geometry.shape import Shape
+from geometry.shape import Shape, _screen_point
 from geometry.point import Punto
 import logging
 
@@ -52,9 +52,10 @@ class Texto(Shape):
             "right": tk.E
         }
         anchor = anchor_map.get(self.alineacion, tk.CENTER)
+        x, y = _screen_point(canvas, self.posicion.x, self.posicion.y)
         self._canvas_id = canvas.create_text(
-            self.posicion.x,
-            self.posicion.y,
+            x,
+            y,
             text=self.texto,
             font=fuente_str,
             fill=self.color,
@@ -92,7 +93,8 @@ class Texto(Shape):
     def actualizar_en_canvas(self, canvas):
         """Actualiza la posición del texto en el canvas"""
         if self._canvas_id is not None:
-            canvas.coords(self._canvas_id, self.posicion.x, self.posicion.y)
+            x, y = _screen_point(canvas, self.posicion.x, self.posicion.y)
+            canvas.coords(self._canvas_id, x, y)
     
     def dibujar_en_pil(self, draw):
         """Dibuja el texto en una imagen PIL"""

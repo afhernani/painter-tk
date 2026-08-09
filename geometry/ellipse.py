@@ -3,7 +3,7 @@
 Clase Elipse para representar elipses
 """
 from .point import Punto
-from .shape import Shape
+from .shape import Shape, _screen_point
 import tkinter as tk
 from typing import Tuple
 import logging
@@ -33,11 +33,8 @@ class Elipse(Shape):
     
     def dibujar_en(self, canvas: tk.Canvas) -> int:
         """Dibuja la elipse en el canvas"""
-        x1 = self.centro.x - self.radio_x
-        y1 = self.centro.y - self.radio_y
-        x2 = self.centro.x + self.radio_x
-        y2 = self.centro.y + self.radio_y
-        
+        x1, y1 = _screen_point(canvas, self.centro.x - self.radio_x, self.centro.y - self.radio_y)
+        x2, y2 = _screen_point(canvas, self.centro.x + self.radio_x, self.centro.y + self.radio_y)
         self._canvas_id = canvas.create_oval(
             x1, y1, x2, y2,
             outline=self.color,
@@ -61,8 +58,9 @@ class Elipse(Shape):
     def actualizar_en_canvas(self, canvas: tk.Canvas):
         """Actualiza la elipse en el canvas"""
         if self._canvas_id is not None:
-            bbox = self.bbox()
-            canvas.coords(self._canvas_id, *bbox)
+            x1, y1 = _screen_point(canvas, self.centro.x - self.radio_x, self.centro.y - self.radio_y)
+            x2, y2 = _screen_point(canvas, self.centro.x + self.radio_x, self.centro.y + self.radio_y)
+            canvas.coords(self._canvas_id, x1, y1, x2, y2)
 
     def resaltar(self, canvas: tk.Canvas, color: str = 'red'):
         if self._canvas_id is not None:

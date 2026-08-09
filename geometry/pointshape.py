@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from .shape import Shape
+from .shape import Shape, _screen_point
 from .point import Punto
 import tkinter as tk
 
@@ -14,10 +14,8 @@ class PointShape(Shape):
 
     def dibujar_en(self, canvas: tk.Canvas) -> int:
         """Dibuja el punto como un círculo pequeño"""
-        x1 = self.punto.x - self.radio
-        y1 = self.punto.y - self.radio
-        x2 = self.punto.x + self.radio
-        y2 = self.punto.y + self.radio
+        x1, y1 = _screen_point(canvas, self.punto.x - self.radio, self.punto.y - self.radio)
+        x2, y2 = _screen_point(canvas, self.punto.x + self.radio, self.punto.y + self.radio)
         self._canvas_id = canvas.create_oval(
             x1, y1, x2, y2,
             outline=self.color,
@@ -40,8 +38,9 @@ class PointShape(Shape):
     def actualizar_en_canvas(self, canvas: tk.Canvas):
         """Actualiza la posición del punto en el canvas"""
         if self._canvas_id is not None:
-            bbox = self.bbox()
-            canvas.coords(self._canvas_id, *bbox)
+            x1, y1 = _screen_point(canvas, self.punto.x - self.radio, self.punto.y - self.radio)
+            x2, y2 = _screen_point(canvas, self.punto.x + self.radio, self.punto.y + self.radio)
+            canvas.coords(self._canvas_id, x1, y1, x2, y2)
 
     def resaltar(self, canvas: tk.Canvas, color: str = 'red'):
         if self._canvas_id is not None:

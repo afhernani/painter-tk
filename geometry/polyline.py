@@ -10,8 +10,8 @@ class Polyline(Shape):
         super().__init__(**kwargs)
         self.puntos = [Punto(p.x, p.y) for p in puntos]
         self._lineas = [
-            Linea(puntos[i], puntos[i+1], **kwargs)
-            for i in range(len(puntos) - 1)
+            Linea(self.puntos[i], self.puntos[i+1], **kwargs)
+            for i in range(len(self.puntos) - 1)
         ]
         self._canvas_ids = []
         self._tag_unico = f"polyline_{id(self)}" # tag propio
@@ -31,26 +31,14 @@ class Polyline(Shape):
     def mover(self, dx, dy):
         for p in self.puntos:
             p.mover(dx, dy)
-        # Re-crear las líneas internas después de mover
-        self._lineas = [
-            Linea(
-                self.puntos[i], 
-                self.puntos[i+1],
-                color=self.color,
-                grosor=self.grosor
-            )
-            for i in range(len(self.puntos) - 1)
-        ]
+        # No es necesario reconstruir las líneas internas al mover la polyline.
+        # Las Linea existentes ya referencian los mismos objetos Punto y mantienen sus _canvas_id.
 
     def actualizar_en_canvas(self, canvas: tk.Canvas):
         """Actualiza todas las líneas en el canvas usando los puntos actuales"""
         for i in range(len(self.puntos) - 1):
             if i < len(self._canvas_ids):
-                canvas.coords(
-                    self._canvas_ids[i],
-                    self.puntos[i].x, self.puntos[i].y,
-                    self.puntos[i + 1].x, self.puntos[i + 1].y
-                )
+                self._lineas[i].actualizar_en_canvas(canvas)
 
     def resaltar(self, canvas: tk.Canvas, color: str = 'red'):
         for cid in self._canvas_ids:

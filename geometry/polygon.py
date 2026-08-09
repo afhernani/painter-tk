@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import math
 import tkinter as tk
-from .shape import Shape
+from .shape import Shape, _screen_coords
 from .point import Punto
 
 class Poligono(Shape):
@@ -55,10 +55,10 @@ class Poligono(Shape):
 
     def dibujar_en(self, canvas: tk.Canvas) -> int:
         coords = self._generar_coords()
+        coords = _screen_coords(canvas, coords)
         self._canvas_id = canvas.create_polygon(
             *coords, outline=self.color, width=self.grosor, fill=self.relleno
         )
-        return self._canvas_id
 
     def bbox(self):
         return (
@@ -72,6 +72,7 @@ class Poligono(Shape):
     def actualizar_en_canvas(self, canvas: tk.Canvas):
         if self._canvas_id is not None:
             coords = self._generar_coords()
+            coords = _screen_coords(canvas, coords)
             canvas.coords(self._canvas_id, *coords)
 
     def resaltar(self, canvas: tk.Canvas, color: str = 'red'):

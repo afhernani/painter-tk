@@ -3,7 +3,7 @@
 Clase Rectangulo para representar rectángulos
 """
 from .point import Punto
-from .shape import Shape
+from .shape import Shape, _screen_point
 import tkinter as tk
 from typing import Tuple
 
@@ -29,9 +29,11 @@ class Rectangulo(Shape):
     
     def dibujar_en(self, canvas: tk.Canvas) -> int:
         """Dibuja el rectángulo en el canvas"""
+        x1, y1 = _screen_point(canvas, self.p1.x, self.p1.y)
+        x2, y2 = _screen_point(canvas, self.p2.x, self.p2.y)
         self._canvas_id = canvas.create_rectangle(
-            self.p1.x, self.p1.y,
-            self.p2.x, self.p2.y,
+            x1, y1,
+            x2, y2,
             outline=self.color,
             width=self.grosor,
             fill=self.relleno
@@ -54,8 +56,9 @@ class Rectangulo(Shape):
     def actualizar_en_canvas(self, canvas: tk.Canvas):
         """Actualiza el rectángulo en el canvas"""
         if self._canvas_id is not None:
-            bbox = self.bbox()
-            canvas.coords(self._canvas_id, *bbox)
+            x1, y1 = _screen_point(canvas, self.p1.x, self.p1.y)
+            x2, y2 = _screen_point(canvas, self.p2.x, self.p2.y)
+            canvas.coords(self._canvas_id, x1, y1, x2, y2)
 
     def resaltar(self, canvas: tk.Canvas, color: str = 'red'):
         if self._canvas_id is not None:

@@ -89,6 +89,8 @@ class App(tk.Frame):
         self.toolbar.on_undo = self.canvasview.undo
         self.toolbar.on_redo = self.canvasview.redo
         self.toolbar.on_fill_color_change = self.change_fill
+        # Variable para el estado del checkbutton
+        self.var_ejes = tk.BooleanVar(value=config.getboolean('View', 'mostrar_ejes', fallback=False))
         # Menú
         self._build_menu()
              
@@ -115,7 +117,9 @@ class App(tk.Frame):
         optionmenu.add_command(label='Save', command=self.save)
         optionmenu.add_command(label='Load', command=self.load)
         optionmenu.add_separator()
-        optionmenu.add_command(label='Exportar a PNG...', command=self.export_png)
+        # En el menú de opciones
+        optionmenu.add_checkbutton(
+            label="Ejes de coordenadas", variable=self.var_ejes, command=self._toggle_ejes )
         optionmenu.add_separator()
         optionmenu.add_command(label='Exit', command=self.master.destroy)
     
@@ -126,6 +130,19 @@ class App(tk.Frame):
         # self.canvasview.lados_poligono = sides
         config.set('General', 'polygon_sides', str(sides))
         config.save()
+
+
+    def _toggle_ejes(self):
+        """Intermediario: actualiza config y delega al canvasview"""
+        # Guardar en configuración
+        nuevo_estado = self.var_ejes.get()
+        config.set('View', 'mostrar_ejes', str(nuevo_estado))
+        # Si tu configmanager tiene save(), descomenta:
+        config.save()
+        
+        # Delegar al canvasview
+        self.canvasview.mostrar_ejes = nuevo_estado
+        self.canvasview._toggle_ejes()
 
 
     def _on_mode_change(self, mode):

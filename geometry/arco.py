@@ -23,12 +23,10 @@ class Arco(Shape):
     
     def dibujar_en(self, canvas: tk.Canvas) -> int:
         """Dibuja el arco en el canvas"""
-        bbox = [
-            self.centro.x - self.radio, self.centro.y - self.radio,
-            self.centro.x + self.radio, self.centro.y + self.radio
-        ]
+        x1, y1 = canvas.world_to_screen(self.centro.x - self.radio, self.centro.y - self.radio)
+        x2, y2 = canvas.world_to_screen(self.centro.x + self.radio, self.centro.y + self.radio)
         self._canvas_id = canvas.create_arc(
-            *bbox,
+            x1, y1, x2, y2,
             start=self.angulo_inicio,
             extent=self.extension,
             style=tk.ARC,
@@ -159,14 +157,12 @@ class Arco(Shape):
         if self._canvas_id is None:
             return
         
-        # Calcular nuevo bbox
-        bbox = [
-            self.centro.x - self.radio, self.centro.y - self.radio,
-            self.centro.x + self.radio, self.centro.y + self.radio
-        ]
+        # Calcular nuevo bbox en coordenadas de pantalla
+        x1, y1 = canvas.world_to_screen(self.centro.x - self.radio, self.centro.y - self.radio)
+        x2, y2 = canvas.world_to_screen(self.centro.x + self.radio, self.centro.y + self.radio)
         
         # Actualizar coordenadas del arco
-        canvas.coords(self._canvas_id, *bbox)
+        canvas.coords(self._canvas_id, x1, y1, x2, y2)
         
         # Actualizar parámetros del arco (ángulos, color, grosor)
         canvas.itemconfig(self._canvas_id,

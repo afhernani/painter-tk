@@ -57,6 +57,10 @@ class ConfigManager:
             'grid_color': 'lightgray',
             'grid_spacing': '20'
         }
+        
+        self.config['View'] = {
+            'mostrar_ejes': 'False'
+        }
     
     def get(self, section, key, fallback=None):
         """

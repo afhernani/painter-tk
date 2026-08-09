@@ -3,8 +3,28 @@
 Clase base abstracta para todas las formas geométricas
 """
 from abc import ABC, abstractmethod
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Iterable
 import tkinter as tk
+
+
+def _screen_coords(canvas: tk.Canvas, coords: Iterable[float]) -> list[float]:
+    """Convierte una lista de coordenadas del mundo a coordenadas de pantalla."""
+    if not hasattr(canvas, 'world_to_screen'):
+        return list(coords)
+    screen = []
+    it = iter(coords)
+    for x in it:
+        y = next(it)
+        sx, sy = canvas.world_to_screen(x, y)
+        screen.extend([sx, sy])
+    return screen
+
+
+def _screen_point(canvas: tk.Canvas, x: float, y: float) -> tuple[float, float]:
+    """Convierte un punto del mundo a coordenadas de pantalla."""
+    if not hasattr(canvas, 'world_to_screen'):
+        return x, y
+    return canvas.world_to_screen(x, y)
 
 
 class Shape(ABC):

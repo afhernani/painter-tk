@@ -37,10 +37,10 @@ class CanvasView(tk.Canvas):
         self.shape_seleccionada = None
         self.tag_trazo_seleccionado = None
         self.trazos = {}
-        self.contador_trazos = 0
-        
+        self.contador_trazos = 0   
         self.linea_preview = None  # id de linea previa (temporal)
         self.linea_p1 = None       # primer punto de linea (punto 1)
+        
         # Estado para modo Polyline (click izq → añadir punto, click der → finalizar)
         self.polyline_puntos = []          # Puntos acumulados [Punto, Punto, ...]
         self.polyline_segmentos_ids = []   # IDs de segmentos ya confirmados en canvas
@@ -116,16 +116,27 @@ class CanvasView(tk.Canvas):
 
         # Zoom y paneo
         self.zoom = 1.0          # Factor de zoom (1.0 = 100%)
+        self.pan_x = 0.0
+        self.pan_y = 0.0
         self.MIN_ZOOM = 0.1      # 10%
         self.MAX_ZOOM = 10.0     # 1000%
-        # self._panning = False    # True mientras se arrastra para panear
-        # self._pan_start_x = 0    # Posición inicial del pan
-        # self._pan_start_y = 0
+        self._panning = False    # True mientras se arrastra para panear
+        self._pan_start_x = 0.0
+        self._pan_start_y = 0.0
 
         # Historial de Undo/Redo
         self.undo_stack = []
         self.redo_stack = []
         self.max_history = 50  # Límite para no consumir mucha memoria
+
+        # Indicador de ejes en el origen
+        self.mostrar_ejes = config.getboolean('View', 'mostrar_ejes', fallback=False)
+        self.eje_x_id = None
+        self.eje_y_id = None
+        self.eje_origen_id = None
+        self.eje_label_x_id = None
+        self.eje_label_y_id = None
+        self.EJE_LONGITUD = 50  # Longitud de las flechas en píxeles
         
         # ----------
         self.bind('<ButtonPress-1>', self._on_press)
@@ -150,6 +161,9 @@ class CanvasView(tk.Canvas):
         self._save_state()
         
         log.info("CanvasView inicializado")
+        # Dibujar ejes si están activados en la configuración
+        if self.mostrar_ejes:
+            self.after(100, self._dibujar_ejes)  # after para que el canvas ya tenga tamaño
 
     # def _on_click(self, event):
     #     log.info("_on_click: click")
@@ -220,51 +234,147 @@ class CanvasView(tk.Canvas):
     
     # conversion de coordenadas
     
-    # def screen_to_world(self, sx, sy):
-    #     """Convierte coordenadas de pantalla a coordenadas del mundo"""
-    #     wx = (sx - self.pan_x) / self.zoom
-    #     wy = (sy - self.pan_y) / self.zoom
-    #     return wx, wy
+    def _dibujar_ejes(self):
+        """Dibuja las flechas del origen de coordenadas en (0,0) del mundo"""
+        if not self.mostrar_ejes:
+            return
+        
+        # Borrar ejes anteriores si existen
+        self._ocultar_ejes()
+        
+        # Obtener posición del origen (0,0) del mundo en coordenadas de pantalla
+        # origen_x = self.canvasx(0)
+        # origen_y = self.canvasy(0)
+        origen_x, origen_y = self.world_to_screen(0, 0)
+        
+        # Verificar que el origen esté visible en el canvas
+        width = self.winfo_width()
+        height = self.winfo_height()
+        
+        if origen_x < -self.EJE_LONGITUD or origen_x > width + self.EJE_LONGITUD:
+            return  # Origen fuera de vista horizontal
+        if origen_y < -self.EJE_LONGITUD or origen_y > height + self.EJE_LONGITUD:
+            return  # Origen fuera de vista vertical
+        
+        # Dibujar flecha del eje X (roja) - hacia la derecha
+        self.eje_x_id = self.create_line(
+            origen_x, origen_y,
+            origen_x + self.EJE_LONGITUD, origen_y,
+            fill='red', width=2, arrow=tk.LAST,
+            tags='eje_coordenadas'
+        )
+        
+        # Dibujar flecha del eje Y (azul) - hacia arriba (Y negativo en pantalla)
+        self.eje_y_id = self.create_line(
+            origen_x, origen_y,
+            origen_x, origen_y - self.EJE_LONGITUD,
+            fill='blue', width=2, arrow=tk.LAST,
+            tags='eje_coordenadas'
+        )
+        
+        # Dibujar punto en el origen
+        self.eje_origen_id = self.create_oval(
+            origen_x - 3, origen_y - 3,
+            origen_x + 3, origen_y + 3,
+            fill='black', outline='',
+            tags='eje_coordenadas'
+        )
+        
+        # Añadir etiquetas "X" e "Y"
+        self.create_text(
+            origen_x + self.EJE_LONGITUD + 10, origen_y,
+            text="X", fill='red', font=('Arial', 10, 'bold'),
+            tags='eje_coordenadas'
+        )
+        self.create_text(
+            origen_x, origen_y - self.EJE_LONGITUD - 10,
+            text="Y", fill='blue', font=('Arial', 10, 'bold'),
+            tags='eje_coordenadas'
+        )
+        
+        # Traer al frente para que sea visible
+        self.tag_raise('eje_coordenadas')
+        log.info(f"Ejes dibujados en origen pantalla: ({origen_x}, {origen_y})")
 
+    def _ocultar_ejes(self):
+        """Oculta las flechas del origen de coordenadas"""
+        self.delete('eje_coordenadas')
+        self.eje_x_id = None
+        self.eje_y_id = None
+        self.eje_origen_id = None
+        self.eje_label_x_id = None
+        self.eje_label_y_id = None
+        log.info("Ejes de coordenadas ocultados")
+
+    def _toggle_ejes(self):
+        """Activa/desactiva la visualización de los ejes"""
+        # self.mostrar_ejes = not self.mostrar_ejes
+        if self.mostrar_ejes:
+            self.after(10, self._dibujar_ejes)
+        else:
+            self.after(10, self._ocultar_ejes)
+        # Guardar el estado en la configuración
+        # try:
+        #     config.set('View', 'mostrar_ejes', str(self.mostrar_ejes))
+        #     # Aquí deberías guardar el archivo de configuración si tu configmanager lo soporta
+        #     config.save()  # Descomenta si tu configmanager tiene método save
+        # except Exception as e:
+        #     log.warning(f"No se pudo guardar la preferencia de ejes: {e}")
+        log.info(f"Mostrar ejes: {self.mostrar_ejes}")
+
+    def _actualizar_ejes(self):
+        """Actualiza la posición de los ejes después de pan/zoom"""
+        if self.mostrar_ejes:
+            # self._ocultar_ejes()
+            self._dibujar_ejes()
+        log.info(f"_actualizar ejes: {self.mostrar_ejes}")
+
+    # ═══════════════════════════════════════════════════════════════
+    # CONVERSIÓN DE COORDENADAS (SISTEMA CENTRAL)
+    # ═══════════════════════════════════════════════════════════════
+    
+    def screen_to_world(self, sx, sy):
+        """Convierte coordenadas de pantalla a coordenadas del mundo"""
+        wx = (sx - self.pan_x) / self.zoom
+        wy = (sy - self.pan_y) / self.zoom
+        return wx, wy
+    
     def world_to_screen(self, wx, wy):
         """Convierte coordenadas del mundo a coordenadas de pantalla"""
-        # canvasx(0) devuelve la coordenada del mundo en x=0 de pantalla
-        # La fórmula inversa es: screen = (world - canvasx(0)) * zoom
-        screen_x = (wx - self.canvasx(0)) * self.zoom
-        screen_y = (wy - self.canvasy(0)) * self.zoom
-        return screen_x, screen_y
-
+        sx = wx * self.zoom + self.pan_x
+        sy = wy * self.zoom + self.pan_y
+        return sx, sy
+    
     def _get_world_coords(self, e):
-         """Convierte coordenadas de pantalla a coordenadas del mundo"""
-         return self.canvasx(e.x), self.canvasy(e.y)
-
+        """Convierte coordenadas de pantalla a coordenadas del mundo"""
+        return self.screen_to_world(e.x, e.y)
+    
     def _make_world_event(self, e):
-        """Crea un evento con las coordenadas transformadas al mundo, 
-        pero conservando todos los demás atributos del evento original."""
+        """Crea un evento con coordenadas transformadas al mundo"""
         wx, wy = self._get_world_coords(e)
-        # return type('Event', (), {'x': wx, 'y': wy, 'num': getattr(e, 'num', 1)})()
-        # Crear un objeto que imite al evento original
+        
         class FakeEvent:
             pass
         
         fake = FakeEvent()
-        
-        # Copiar TODOS los atributos del evento original      
-        # Sobrescribir x e y con las coordenadas del mundo
         fake.x = wx
         fake.y = wy
+        fake.sx = getattr(e, 'x', 0)
+        fake.sy = getattr(e, 'y', 0)
         fake.x_root = getattr(e, 'x_root', 0)
         fake.y_root = getattr(e, 'y_root', 0)
         fake.num = getattr(e, 'num', 1)
         fake.delta = getattr(e, 'delta', 0)
         fake.widget = getattr(e, 'widget', self)
         fake.type = getattr(e, 'type', None)
-
+        
         return fake
     
     # fin conversion de coordenadas
 
-    #  pan con el botón central y zoom con la rueda del ratón en tu aplicación 
+    # ═══════════════════════════════════════════════════════════════
+    # PAN Y ZOOM (SISTEMA MANUAL)
+    # ═══════════════════════════════════════════════════════════════
 
     def _add_pan_zoom_bindings(self):
         """Añade bindings para pan (botón central) y zoom (rueda del ratón)"""
@@ -282,112 +392,104 @@ class CanvasView(tk.Canvas):
         self.bind("<Button-4>", self._zoom)
 
     def _pan_start(self, event):
-        """Inicia el pan (desplazamiento del canvas)"""
-        self.scan_mark(event.x, event.y)
+        """Inicia el pan"""
+        self._pan_start_x = event.x
+        self._pan_start_y = event.y
         self.config(cursor="fleur")
-        log.info(f"_pan_start: ({event.x:.1f},{event.y:.1f}) ---")
-
+    
     def _pan_move(self, event):
         """Mueve el canvas durante el pan"""
-        self.scan_dragto(event.x, event.y, gain=1)
-        log.info(f"_pan_move: ({event.x:.1f},{event.y:.1f}) ---")
-
+        dx = event.x - self._pan_start_x
+        dy = event.y - self._pan_start_y
+        self._pan_start_x = event.x
+        self._pan_start_y = event.y
+        
+        # Actualizar variables de paneo
+        self.pan_x += dx
+        self.pan_y += dy
+        
+        # Redibujar todo con el nuevo pan
+        self._redraw_all()
+    
     def _pan_end(self, event):
         """Finaliza el pan"""
         self.config(cursor="")
-        # Actualizar handles después del pan
         if self.shape_seleccionada:
-            self.after(10, self._actualizar_tamaño_handles)
-        log.info(f"_pan_end: ({event.x:.1f},{event.y:.1f}) ---")
-
+            self._seleccionar_shape(self.shape_seleccionada)
+        if self.mostrar_ejes:
+            self.after(10, self._actualizar_ejes)
+    
     def _zoom(self, event):
-        """Zoom con la rueda del ratón centrado en la posición del cursor"""
+        """Zoom con la rueda del ratón centrado en el cursor"""
         scale_factor = 1.1
-        # determinar direccion
+        
         if hasattr(event, 'delta'):
             zoom_in = event.delta > 0
         else:
             zoom_in = event.num == 4
         
         factor = scale_factor if zoom_in else 1 / scale_factor
-        # limitar zoom
         nuevo_zoom = self.zoom * factor
         
         if self.MIN_ZOOM <= nuevo_zoom <= self.MAX_ZOOM:
-            # Coordenadas del cursor en el canvas (del zoom actual)
-            x = self.canvasx(event.x)
-            y = self.canvasy(event.y)
-            # Aplicar escala al canvas (tkinter escala todos los items automaticamente)
-            self.scale("all", x, y, factor, factor)
-            # actualiza el zoom manualmente (solo para calcular tamaño de handles)
-            self.zoom = nuevo_zoom   
-            # Actualizar handles
+            # Coordenadas del cursor en el mundo (antes del zoom)
+            wx, wy = self.screen_to_world(event.x, event.y)
+            
+            # Actualizar zoom
+            self.zoom = nuevo_zoom
+            
+            # Recalcular pan para que el punto bajo el cursor siga ahí
+            self.pan_x = event.x - wx * self.zoom
+            self.pan_y = event.y - wy * self.zoom
+            
+            # Redibujar todo con el nuevo zoom
+            self._redraw_all()
+            
+            # Actualizar handles si hay algo seleccionado
             if self.shape_seleccionada:
-                self.after(10, self._actualizar_tamaño_handles)
+                self._seleccionar_shape(self.shape_seleccionada)
+            if self.mostrar_ejes:
+                self.after(10, self._actualizar_ejes)
         
-        log.info(f"_Zoom: {self.zoom:.2f}")
-
-    def _redraw_all_with_pan(self):
-        """Redibuja todas las figuras aplicando el pan actual"""
+        log.info(f"Zoom: {self.zoom:.2f}, pan: ({self.pan_x:.1f}, {self.pan_y:.1f})")
+    
+    def _redraw_all(self):
+        """Redibuja todas las figuras aplicando el zoom y pan actual"""
+        # Guardar estado de selección
         shape_seleccionada = self.shape_seleccionada
         
-        # Borrar todo
+        # Borrar todo del canvas
         self.delete('all')
         
         # Redibujar todas las figuras
         for shape in self.shapes:
             shape.dibujar_en(self)
+
+        if self.mostrar_ejes:
+            self._dibujar_ejes()
         
-        # Restaurar selección
+        # Restaurar selección si había
         if shape_seleccionada:
             self.shape_seleccionada = shape_seleccionada
             self._seleccionar_shape(shape_seleccionada)
 
-    def _actualizar_tamaño_handles(self):
-        """Reajusta el tamaño de los handles según el zoom actual"""
-        if not self.shape_seleccionada:
-            return
-    
-        # Guardar la shape actual
-        shape = self.shape_seleccionada
-        
-        # Deseleccionar y volver a seleccionar para recrear handles con el nuevo tamaño
-        self._deseleccionar_todo()
-        self.shape_seleccionada = shape
-        self._seleccionar_shape(shape)
-        # Forzar actualizacion visual
-        #self.update_idletasks()
-
-    # def _redraw_all_with_zoom(self):
-    #     """Redibuja todas las figuras aplicando el zoom actual"""
-    #     # Guardar estado de selección
-    #     shape_seleccionada = self.shape_seleccionada
-        
-    #     # Borrar todo del canvas
-    #     self.delete('all')
-        
-    #     # Redibujar todas las figuras
-    #     for shape in self.shapes:
-    #         shape.dibujar_en(self)
-        
-    #     # APLICAR ZOOM: escalar todo el canvas
-    #     if self.zoom != 1.0:
-    #         self.scale("all", 0, 0, self.zoom, self.zoom)
-        
-    #     # APLICAR PAN: desplazar todo el canvas
-    #     if self.pan_x != 0 or self.pan_y != 0:
-    #         self.move("all", self.pan_x, self.pan_y)
-        
-    #     # Restaurar selección si había
-    #     if shape_seleccionada:
-    #         self.shape_seleccionada = shape_seleccionada
-    #         self._seleccionar_shape(shape_seleccionada)
+        log.info(f"_redraw_all: ")
 
     def _get_handle_radio(self):
-        """Calcula el tamaño del handle según el zoom actual"""
-        # Si no hay zoom implementado aún, retorna el tamaño base
-        # zoom = getattr(self, 'zoom', 1.0)
-        return (self.TAMANO_BASE / 2) #/ self.zoom
+        """Calcula el radio del handle en coordenadas de mundo para mantener tamaño constante en pantalla."""
+        # El tamaño base se define en píxeles de pantalla; convertir a mundo dividiendo por zoom.
+        return (self.TAMANO_BASE / 2) / self.zoom
+
+    def _handle_bounds(self, wx, wy):
+        """Devuelve los límites del handle en pantalla para un punto world (wx, wy)."""
+        radio = self._get_handle_radio()
+        x1, y1 = self.world_to_screen(wx - radio, wy - radio)
+        x2, y2 = self.world_to_screen(wx + radio, wy + radio)
+        return x1, y1, x2, y2
+
+    # ═══════════════════════════════════════════════════════
+    # CURSOR Y MODO
+    # ═══════════════════════════════════════════════════════════════
 
     def _actualizar_cursor(self):
         """Actualiza el cursor según el modo actual"""
@@ -438,13 +540,14 @@ class CanvasView(tk.Canvas):
         return self.lados_poligono
     
     # Valor por defecto
-    # ---------------
-    # Mover raton
-    # ----------------
+    # ═══════════════════════════════════════════════════════════════
+    # MOUSE MOVE
+    # ══════════════════════════════════════════════════════════════
+    
     def _on_mouse_move(self, e):
         """Actualiza la línea preview para que siga al cursor"""
-        # Convertir a coords del mundo y crear evento falso
-        e = self._make_world_event(e)  # ← Reemplazamos e por el evento transformado
+        # Convertir a coords del mundo y usar el evento transformado
+        e = self._make_world_event(e)
         self._set_status(f"{e.x, e.y}")
         mode = self._get_mode()
 
@@ -452,13 +555,17 @@ class CanvasView(tk.Canvas):
         
         # Si estamos en modo línea y ya hemos hecho el primer click
         if mode == 'L' and self.linea_p1 is not None and self.linea_preview is not None:
-            self.coords(self.linea_preview, self.linea_p1.x, self.linea_p1.y, e.x, e.y)
+            x1, y1 = self.world_to_screen(self.linea_p1.x, self.linea_p1.y)
+            x2, y2 = self.world_to_screen(e.x, e.y)
+            self.coords(self.linea_preview, x1, y1, x2, y2)
             self._set_status(f"Línea: ({self.linea_p1.x}, {self.linea_p1.y}) -> ({e.x}, {e.y})")
         
         # Preview de polyline
         if mode == 'Pl' and self.polyline_puntos and self.polyline_preview_id is not None:
             ultimo_punto = self.polyline_puntos[-1]
-            self.coords(self.polyline_preview_id, ultimo_punto.x, ultimo_punto.y, e.x, e.y)
+            x1, y1 = self.world_to_screen(ultimo_punto.x, ultimo_punto.y)
+            x2, y2 = self.world_to_screen(e.x, e.y)
+            self.coords(self.polyline_preview_id, x1, y1, x2, y2)
             return
 
         # Preview de polígono
@@ -471,8 +578,10 @@ class CanvasView(tk.Canvas):
             
             for i in range(self.lados_poligono):
                 theta = i * angulo_paso + offset
-                coords.append(self.poligono_centro.x + radio * math.cos(theta))
-                coords.append(self.poligono_centro.y + radio * math.sin(theta))
+                wx = self.poligono_centro.x + radio * math.cos(theta)
+                wy = self.poligono_centro.y + radio * math.sin(theta)
+                sx, sy = self.world_to_screen(wx, wy)
+                coords.extend([sx, sy])
             
             self.coords(self.poligono_preview_id, *coords)
             return
@@ -480,29 +589,27 @@ class CanvasView(tk.Canvas):
         # Preview de círculo
         if mode == 'C' and self.circulo_centro is not None and self.circulo_preview_id is not None:
             radio = math.hypot(e.x - self.circulo_centro.x, e.y - self.circulo_centro.y)
-            x1 = self.circulo_centro.x - radio
-            y1 = self.circulo_centro.y - radio
-            x2 = self.circulo_centro.x + radio
-            y2 = self.circulo_centro.y + radio
+            x1, y1 = self.world_to_screen(self.circulo_centro.x - radio, self.circulo_centro.y - radio)
+            x2, y2 = self.world_to_screen(self.circulo_centro.x + radio, self.circulo_centro.y + radio)
             self.coords(self.circulo_preview_id, x1, y1, x2, y2)
             return
         
         # Preview de Rectángulo
         if mode == 'R' and self.rectangulo_centro is not None and self.rectangulo_preview_id is not None:
             # Calculamos la esquina opuesta para que el centro sea el punto medio
-            x1 = 2 * self.rectangulo_centro.x - e.x
-            y1 = 2 * self.rectangulo_centro.y - e.y
-            self.coords(self.rectangulo_preview_id, x1, y1, e.x, e.y)
+            x1w = 2 * self.rectangulo_centro.x - e.x
+            y1w = 2 * self.rectangulo_centro.y - e.y
+            x1, y1 = self.world_to_screen(x1w, y1w)
+            x2, y2 = self.world_to_screen(e.x, e.y)
+            self.coords(self.rectangulo_preview_id, x1, y1, x2, y2)
             return
 
         # Preview de Elipse
         if mode == 'E' and self.elipse_centro is not None and self.elipse_preview_id is not None:
             rx = abs(e.x - self.elipse_centro.x)
             ry = abs(e.y - self.elipse_centro.y)
-            x1 = self.elipse_centro.x - rx
-            y1 = self.elipse_centro.y - ry
-            x2 = self.elipse_centro.x + rx
-            y2 = self.elipse_centro.y + ry
+            x1, y1 = self.world_to_screen(self.elipse_centro.x - rx, self.elipse_centro.y - ry)
+            x2, y2 = self.world_to_screen(self.elipse_centro.x + rx, self.elipse_centro.y + ry)
             self.coords(self.elipse_preview_id, x1, y1, x2, y2)
             return
         
@@ -512,9 +619,10 @@ class CanvasView(tk.Canvas):
             if self.arco_preview_id is not None:
                 self.delete(self.arco_preview_id)
             r = self.arco_centro.distancia(Punto(e.x, e.y))
+            x1, y1 = self.world_to_screen(self.arco_centro.x - r, self.arco_centro.y - r)
+            x2, y2 = self.world_to_screen(self.arco_centro.x + r, self.arco_centro.y + r)
             self.arco_preview_id = self.create_oval(
-                self.arco_centro.x - r, self.arco_centro.y - r,
-                self.arco_centro.x + r, self.arco_centro.y + r,
+                x1, y1, x2, y2,
                 outline='gray', dash=(4, 4)
             )
             return
@@ -529,12 +637,10 @@ class CanvasView(tk.Canvas):
                 e.x - self.arco_centro.x
             ))
             extension = angulo_actual - self.arco_angulo_inicio
-            bbox = [
-                self.arco_centro.x - self.arco_radio, self.arco_centro.y - self.arco_radio,
-                self.arco_centro.x + self.arco_radio, self.arco_centro.y + self.arco_radio
-            ]
+            x1, y1 = self.world_to_screen(self.arco_centro.x - self.arco_radio, self.arco_centro.y - self.arco_radio)
+            x2, y2 = self.world_to_screen(self.arco_centro.x + self.arco_radio, self.arco_centro.y + self.arco_radio)
             self.arco_preview_id = self.create_arc(
-                *bbox,
+                x1, y1, x2, y2,
                 start=self.arco_angulo_inicio,
                 extent=extension,
                 style=tk.ARC,
@@ -547,7 +653,7 @@ class CanvasView(tk.Canvas):
             if self.texto_preview_id is not None:
                 self.delete(self.texto_preview_id)
             self.texto_preview_id = self.create_oval(
-                e.x - 3, e.y - 3, e.x + 3, e.y + 3,
+                e.sx - 3, e.sy - 3, e.sx + 3, e.sy + 3,
                 fill='gray', outline=''
             )
             self._set_status(f"Texto: click para insertar en ({e.x}, {e.y})")
@@ -556,6 +662,7 @@ class CanvasView(tk.Canvas):
     def _move_elemento_duplicado(self, e):
         """Mover la figura fantasma duplicada siguiendo al raton"""
         # log.info(f"_move_elemento_duplicado: {e.x}, {e.y}")
+        e = self._make_world_event(e)
         if not getattr(self, '_colocando_duplicado', False) or not self._figura_a_colocar:
             return
         
@@ -638,15 +745,14 @@ class CanvasView(tk.Canvas):
         except tk.TclError:
             pass  # Si el item no soporta dash o fill, lo dejamos normal
 
-    # ================================================================
+    # ═══════════════════════════════════════════════════════════════
     # PRESS
-    # ================================================================
+    # ═══════════════════════════════════════════════════════════════
+    
     def _on_press(self, e):
         """Al presionar el boton izquierdo del ratón"""
+        e = self._make_world_event(e)
         log.info(f'_on_press: press ({e.x:.1f},{e.y:.1f})')
-        # Convertir a coords del mundo y crear evento falso
-        e = self._make_world_event(e)  # ← Reemplazamos e por el evento transformado
-        log.info(f'_on_press: press make2world ({e.x:.1f},{e.y:.1f})')
         self.focus_set()
         mode = self._get_mode()
         
@@ -665,11 +771,12 @@ class CanvasView(tk.Canvas):
         # ── MODO LÍNEA: patrón click → move → click ──
         if mode == 'L':
             if self.linea_p1 is None:
-                # PRIMER CLICK: guardar punto inicial
+                # PRIMER CLICK: guardar punto inicial en coordenadas del mundo
                 self.linea_p1 = Punto(e.x, e.y)
-                # Crear línea preview (temporal, punteada)
+                # Crear línea preview (temporal, punteada) en coordenadas de pantalla
+                sx, sy = e.sx, e.sy
                 self.linea_preview = self.create_line(
-                    e.x, e.y, e.x, e.y,
+                    sx, sy, sx, sy,
                     dash=(4, 2),          # Línea punteada
                     fill='gray',
                     width=1
@@ -685,9 +792,10 @@ class CanvasView(tk.Canvas):
             if self.poligono_centro is None:
                 # PRIMER CLICK: guardar centro
                 self.poligono_centro = Punto(e.x, e.y)
-                # Crear preview inicial (puntos dummy)
+                # Crear preview inicial (puntos dummy) usando pantalla
+                sx, sy = e.sx, e.sy
                 self.poligono_preview_id = self.create_polygon(
-                    e.x, e.y, e.x, e.y, e.x, e.y,
+                    sx, sy, sx, sy, sx, sy,
                     outline='gray', width=1, fill=''
                 )
                 self._set_status(f"Polígono: centro en ({e.x}, {e.y}). Mueve el ratón y haz click para el radio")
@@ -729,8 +837,9 @@ class CanvasView(tk.Canvas):
                 # PRIMER CLICK: guardar centro
                 self.circulo_centro = Punto(e.x, e.y)
                 # Crear preview inicial (círculo de radio 0)
+                sx, sy = e.sx, e.sy
                 self.circulo_preview_id = self.create_oval(
-                    e.x, e.y, e.x, e.y,
+                    sx, sy, sx, sy,
                     outline='gray', width=1, fill=''
                 )
                 self._set_status(f"Círculo: centro en ({e.x}, {e.y}). Mueve el ratón y haz click para el radio")
@@ -743,8 +852,9 @@ class CanvasView(tk.Canvas):
         if mode == 'R':
             if self.rectangulo_centro is None:
                 self.rectangulo_centro = Punto(e.x, e.y)
+                sx, sy = e.sx, e.sy
                 self.rectangulo_preview_id = self.create_rectangle(
-                    e.x, e.y, e.x, e.y, outline='gray', width=1, fill=''
+                    sx, sy, sx, sy, outline='gray', width=1, fill=''
                 )
                 self._set_status("Rectángulo: centro establecido. Mueve y haz click para la esquina.")
             else:
@@ -755,8 +865,9 @@ class CanvasView(tk.Canvas):
         if mode == 'E':
             if self.elipse_centro is None:
                 self.elipse_centro = Punto(e.x, e.y)
+                sx, sy = e.sx, e.sy
                 self.elipse_preview_id = self.create_oval(
-                    e.x, e.y, e.x, e.y, outline='gray', width=1, fill=''
+                    sx, sy, sx, sy, outline='gray', width=1, fill=''
                 )
                 self._set_status("Elipse: centro establecido. Mueve y haz click para el borde.")
             else:
@@ -826,7 +937,7 @@ class CanvasView(tk.Canvas):
 
     def _iniciar_logica_colocar_duplicado(self, e):
         """Iniciar Lógica para colocar duplicado en la posicion del click"""
-        # log.info(f"_iniciar_logica_colocar_dupliado: {e.x}, {e.y}")
+        e = self._make_world_event(e)
         
         if getattr(self, '_colocando_duplicado', False) and self._figura_a_colocar:
             shape = self._figura_a_colocar
@@ -898,8 +1009,7 @@ class CanvasView(tk.Canvas):
 
     def _on_right_click(self, e):
         """Click derecho: finaliza la polyline en progreso"""
-        # Convertir a coords del mundo y crear evento falso
-        e = self._make_world_event(e)  # ← Reemplazamos e por el evento transformado
+        e = self._make_world_event(e)
         log.info(f"_on_right_click: {e.x}, {e.y}")
         mode = self._get_mode()
 
@@ -917,7 +1027,7 @@ class CanvasView(tk.Canvas):
         if mode == 'S':
             # Buscar si hay un Texto en la posición del clic
             halo = 8
-            encontrados = self.find_overlapping(e.x - halo, e.y - halo, e.x + halo, e.y + halo)
+            encontrados = self.find_overlapping(e.sx - halo, e.sy - halo, e.sx + halo, e.sy + halo)
             
             for item_id in reversed(encontrados):
                 tags = self.gettags(item_id)
@@ -937,8 +1047,7 @@ class CanvasView(tk.Canvas):
     # MOTION
     # ================================================================
     def _on_motion(self, e):
-        # Convertir a coords del mundo y crear evento falso
-        e = self._make_world_event(e)  # ← Reemplazamos e por el evento transformado
+        e = self._make_world_event(e)
         log.info(f"_on_motion: motion {e.x} - {e.y}")
         self._set_status(f"{e.x} - {e.y}")
         mode = self._get_mode()
@@ -970,7 +1079,7 @@ class CanvasView(tk.Canvas):
     # ================================================================
     def _on_release(self, e):
         # Convertir a coords del mundo y crear evento falso
-        e = self._make_world_event(e)  # ← Reemplazamos e por el evento transformado
+        # e = self._make_world_event(e)  # ← Reemplazamos e por el evento transformado
         # log.info(f'_on_release: release ...{e.x} : {e.y}')
 
         self.old_x = None
@@ -1042,14 +1151,12 @@ class CanvasView(tk.Canvas):
     # ================================================================
     def _press_select_mode(self, e):
         """Presionar y determinar que estamos seleccionando"""
-        log.info(f"_press_select_mode: en ({e.x:.1f}, {e.y:.1f})")
-        # e = self._make_world_event(e)
-        # log.info(f"_press_select_mdoe: en makeToWorld ({e.x:.1f}, {e.y:.1f})")
+        log.info(f"_press_select_mode: en cm ({e.x:.1f}, {e.y:.1f})")
         # 1. ¿Click sobre un handle?
         halo_handle = 15
         handle_items = self.find_overlapping(
-            e.x - halo_handle, e.y - halo_handle,
-            e.x + halo_handle, e.y + halo_handle
+            e.sx - halo_handle, e.sy - halo_handle,
+            e.sx + halo_handle, e.sy + halo_handle
         )
         log.info(f"item encontrado en área de handle: {handle_items}")
         
@@ -1152,7 +1259,7 @@ class CanvasView(tk.Canvas):
         
         # 2. ¿Click sobre una figura (NO es un handle)?
         halo = 8
-        encontrados = self.find_overlapping(e.x - halo, e.y - halo, e.x + halo, e.y + halo)
+        encontrados = self.find_overlapping(e.sx - halo, e.sy - halo, e.sx + halo, e.sy + halo)
         log.info(f"Items encontrados en área de figura: {encontrados}")
         
         shape_candidata = None
@@ -1215,10 +1322,10 @@ class CanvasView(tk.Canvas):
                     self._mover_vertice_poligono(e)
                 elif self.dragging_handle.startswith('poligono_segmento_'):
                     self._mover_segmento_poligono(e)
-            elif self.dragging_handle == 'circulo_centro':  # 
+            elif self.dragging_handle == 'circulo_centro':
                 log.info("Ejecutar _mover_circulo_centro")
                 self._mover_circulo_centro(e)
-            elif self.dragging_handle == 'circulo_perimetro':  #
+            elif self.dragging_handle == 'circulo_perimetro':
                 log.info("Ejecutar _mover_circulo_perimetro")
                 self._mover_circulo_perimetro(e)
             elif self.dragging_handle == 'elipse_centro':
@@ -1227,14 +1334,12 @@ class CanvasView(tk.Canvas):
                 self._mover_elipse_eje_x(e)
             elif self.dragging_handle == 'elipse_eje_y':
                 self._mover_elipse_eje_y(e)
-            # handles de arco.
             elif self.dragging_handle == 'arco_centro':
                 self._mover_arco_centro(e)
             elif self.dragging_handle == 'arco_inicio':
                 self._mover_arco_inicio(e)
             elif self.dragging_handle == 'arco_final':
                 self._mover_arco_final(e)
-            # Handles de bbox
             elif self.dragging_handle in ('nw', 'ne', 'sw', 'se'):
                 self._redimensionar_bbox(e)
             return
@@ -1246,10 +1351,11 @@ class CanvasView(tk.Canvas):
             # Mover el shape usando el modelo
             self.shape_seleccionada.mover(dx, dy)
             self.shape_seleccionada.actualizar_en_canvas(self)
-            # Convertir dx, dy a coordenadas de pantalla para mover los handles
-            dx_screen = dx * self.zoom
-            dy_screen = dy * self.zoom
+            self.drag_start_x = e.x
+            self.drag_start_y = e.y
 
+            screen_dx = dx * self.zoom
+            screen_dy = dy * self.zoom
             handles_a_mover = [
                 self.handle_start, self.handle_end,
                 self.handle_nw, self.handle_ne,
@@ -1263,9 +1369,9 @@ class CanvasView(tk.Canvas):
             for h in handles_a_mover:
                 if h is not None:
                     if isinstance(h, tuple):
-                        self.move(h[1], dx_screen, dy_screen) # para handles en tuplas
+                        self.move(h[1], screen_dx, screen_dy)
                     else:
-                        self.move(h, dx_screen, dy_screen)
+                        self.move(h, screen_dx, screen_dy)
             
             self.drag_start_x = e.x
             self.drag_start_y = e.y
@@ -1336,11 +1442,9 @@ class CanvasView(tk.Canvas):
         """Muestra handle en el punto"""
         self.delete('handle_punto')
 
-        radio = self._get_handle_radio()
-        
+        x1, y1, x2, y2 = self._handle_bounds(shape.punto.x, shape.punto.y)
         self.handle_punto = self.create_oval(
-            shape.punto.x - radio, shape.punto.y - radio,
-            shape.punto.x + radio, shape.punto.y + radio,
+            x1, y1, x2, y2,
             fill='green', outline='white', width=2,
             tags=('handle', 'handle_punto', f'fig_{shape._canvas_id}')
         )
@@ -1368,19 +1472,13 @@ class CanvasView(tk.Canvas):
         self.delete('handle_start')
         self.delete('handle_end')
 
-        # Convertir coordenadas del mundo a pantalla
-        p1_sx, p1_sy = self.world_to_screen(shape.p1.x, shape.p1.y)
-        p2_sx, p2_sy = self.world_to_screen(shape.p2.x, shape.p2.y)
-        # Calcular tamaño según zoom
-        radio = self._get_handle_radio()
-
         self.handle_start = self.create_oval(
-            p1_sx - radio, p1_sy - radio, p1_sx + radio, p1_sy + radio,
+            *self._handle_bounds(shape.p1.x, shape.p1.y),
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_start', f'fig_{shape._canvas_id}')
         )
         self.handle_end = self.create_oval(
-            p2_sx - radio, p2_sy - radio, p2_sx + radio, p2_sy + radio,
+            *self._handle_bounds(shape.p2.x, shape.p2.y),
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_end', f'fig_{shape._canvas_id}')
         )
@@ -1391,7 +1489,6 @@ class CanvasView(tk.Canvas):
         """Mueve un vértice de una polyline"""
         if not isinstance(self.shape_seleccionada, Polyline):
             return
-        radio = self._get_handle_radio()
         shape = self.shape_seleccionada
         idx = int(self.dragging_handle.split('_')[-1])
         
@@ -1403,11 +1500,9 @@ class CanvasView(tk.Canvas):
             # Actualizar los segmentos conectados en el canvas
             shape.actualizar_en_canvas(self)
             
-            # Mover el handle visual
+            # Mover el handle visual al punto nuevo (pantalla)
             if idx < len(self.handles_polyline):
-                self.coords(self.handles_polyline[idx], e.x-radio, 
-                            e.y-radio, e.x+radio, e.y+radio
-                            )
+                self.coords(self.handles_polyline[idx], *self._handle_bounds(e.x, e.y))
         self.tag_raise('handle')
         log.info(f"Handles polyline creados: {len(self.handles_polyline)} handles")
 
@@ -1418,21 +1513,20 @@ class CanvasView(tk.Canvas):
             return
         x1, y1, x2, y2 = bbox
         self.delete('handle')
-        radio = self._get_handle_radio()
         self.handle_nw = self.create_oval(
-            x1-radio, y1-radio, x1+radio, y1+radio,
+            *self._handle_bounds(x1, y1),
             fill='green', outline='white', width=2,
             tags=('handle', 'handle_nw', f'fig_{shape._canvas_id}'))
         self.handle_ne = self.create_oval(
-            x2-radio, y1-radio, x2+radio, y1+radio,
+            *self._handle_bounds(x2, y1),
             fill='green', outline='white', width=2,
             tags=('handle', 'handle_ne', f'fig_{shape._canvas_id}'))
         self.handle_sw = self.create_oval(
-            x1-radio, y2-radio, x1+radio, y2+radio,
+            *self._handle_bounds(x1, y2),
             fill='green', outline='white', width=2,
             tags=('handle', 'handle_sw', f'fig_{shape._canvas_id}'))
         self.handle_se = self.create_oval(
-            x2-radio, y2-radio, x2+radio, y2+radio,
+            *self._handle_bounds(x2, y2),
             fill='green', outline='white', width=2,
             tags=('handle', 'handle_se', f'fig_{shape._canvas_id}'))
 
@@ -1441,24 +1535,20 @@ class CanvasView(tk.Canvas):
         shape = self.shape_seleccionada
         if not isinstance(shape, Linea):
             return
-        radio = self._get_handle_radio()    
+        radio = self._get_handle_radio()
         if self.dragging_handle == 'start':
             # Actualizar el modelo (Punto p1)
             shape.p1.x = float(e.x)
             shape.p1.y = float(e.y)
-            # Actualizar la vista (Canvas)
             shape.actualizar_en_canvas(self)
-            # Mover el handle visual
-            self.coords(self.handle_start, e.x-radio, e.y-radio, e.x+radio, e.y+radio)
-            
+            self.coords(self.handle_start, *self._handle_bounds(shape.p1.x, shape.p1.y))
+            self.coords(self.handle_end, *self._handle_bounds(shape.p2.x, shape.p2.y))
         elif self.dragging_handle == 'end':
-            # Actualizar el modelo (Punto p2)
             shape.p2.x = float(e.x)
             shape.p2.y = float(e.y)
-            # Actualizar la vista (Canvas)
             shape.actualizar_en_canvas(self)
-            # Mover el handle visual
-            self.coords(self.handle_end, e.x-radio, e.y-radio, e.x+radio, e.y+radio)
+            self.coords(self.handle_end, *self._handle_bounds(shape.p2.x, shape.p2.y))
+            self.coords(self.handle_start, *self._handle_bounds(shape.p1.x, shape.p1.y))
 
     def _redimensionar_bbox(self, e):
         if self._bbox_inicial is None or self.shape_seleccionada is None:
@@ -1502,17 +1592,19 @@ class CanvasView(tk.Canvas):
             shape.p2.y = float(max(y1, y2))
 
         shape.actualizar_en_canvas(self)
-        radio = self._get_handle_radio()
         x_min, x_max = min(x1, x2), max(x1, x2)
         y_min, y_max = min(y1, y2), max(y1, y2)
+        x1s, y1s = self.world_to_screen(x_min, y_min)
+        x2s, y2s = self.world_to_screen(x_max, y_max)
+        screen_radio = self.TAMANO_BASE / 2
         if self.handle_nw:
-            self.coords(self.handle_nw, x_min-radio, y_min-radio, x_min+radio, y_min+radio)
+            self.coords(self.handle_nw, x1s-screen_radio, y1s-screen_radio, x1s+screen_radio, y1s+screen_radio)
         if self.handle_ne:
-            self.coords(self.handle_ne, x_max-radio, y_min-radio, x_max+radio, y_min+radio)
+            self.coords(self.handle_ne, x2s-screen_radio, y1s-screen_radio, x2s+screen_radio, y1s+screen_radio)
         if self.handle_sw:
-            self.coords(self.handle_sw, x_min-radio, y_max-radio, x_min+radio, y_max+radio)
+            self.coords(self.handle_sw, x1s-screen_radio, y2s-screen_radio, x1s+screen_radio, y2s+screen_radio)
         if self.handle_se:
-            self.coords(self.handle_se, x_max-radio, y_max-radio, x_max+radio, y_max+radio)
+            self.coords(self.handle_se, x2s-screen_radio, y2s-screen_radio, x2s+screen_radio, y2s+screen_radio)
 
     def _mostrar_handles_polyline(self, shape):
         """Muestra handles azules en cada vértice de la polyline"""
@@ -1529,8 +1621,9 @@ class CanvasView(tk.Canvas):
         fig_id = shape._canvas_ids[0] if hasattr(shape, '_canvas_ids') and shape._canvas_ids else 'polyline'
         
         for i, punto in enumerate(shape.puntos):
+            x1, y1, x2, y2 = self._handle_bounds(punto.x, punto.y)
             handle = self.create_oval(
-                punto.x - radio, punto.y - radio, punto.x + radio, punto.y + radio,
+                x1, y1, x2, y2,
                 fill='blue', outline='white', width=2,
                 tags=('handle', f'handle_polyline_{i}', f'fig_{fig_id}')
             )
@@ -1549,8 +1642,7 @@ class CanvasView(tk.Canvas):
         radio = self._get_handle_radio()
         # Handle del centro (guardado en su propia variable, no en la lista)
         self.handle_poligono_centro = self.create_oval(
-            shape.centro.x - radio, shape.centro.y - radio,
-            shape.centro.x + radio, shape.centro.y + radio,
+            *self._handle_bounds(shape.centro.x, shape.centro.y),
             fill='green', outline='white', width=2,
             tags=('handle', 'handle_poligono_centro', f'fig_{shape._canvas_id}')
         )
@@ -1559,7 +1651,7 @@ class CanvasView(tk.Canvas):
         vertices = shape.obtener_vertices()
         for i, v in enumerate(vertices):
             handle = self.create_oval(
-                v.x - radio, v.y - radio, v.x + radio, v.y + radio,
+                *self._handle_bounds(v.x, v.y),
                 fill='blue', outline='white', width=2,
                 tags=('handle', f'handle_poligono_vertice_{i}', f'fig_{shape._canvas_id}')
             )
@@ -1691,9 +1783,8 @@ class CanvasView(tk.Canvas):
         
         # Actualizar el handle
         if self.handle_punto:
-            self.coords(self.handle_punto,
-                        shape.punto.x - radio, shape.punto.y - radio,
-                        shape.punto.x + radio, shape.punto.y + radio)
+            x1, y1, x2, y2 = self._handle_bounds(shape.punto.x, shape.punto.y)
+            self.coords(self.handle_punto, x1, y1, x2, y2)
         self._save_state()
             
     # -------------------------
@@ -1732,22 +1823,25 @@ class CanvasView(tk.Canvas):
         nuevo_punto = Punto(x, y)
         self.polyline_puntos.append(nuevo_punto)
         
-        # Si ya hay un punto anterior, crear segmento confirmado
+        # Si ya hay un punto anterior, crear segmento confirmado en coordenadas de pantalla
         if len(self.polyline_puntos) >= 2:
             p_anterior = self.polyline_puntos[-2]
             width = self._get_width()
             color = self._get_color_fg()
+            x1, y1 = self.world_to_screen(p_anterior.x, p_anterior.y)
+            x2, y2 = self.world_to_screen(x, y)
             cid = self.create_line(
-                p_anterior.x, p_anterior.y, x, y,
+                x1, y1, x2, y2,
                 fill=color, width=width, capstyle=tk.ROUND
             )
             self.polyline_segmentos_ids.append(cid)
         
-        # Crear/actualizar preview punteada desde el último punto
+        # Crear/actualizar preview punteada desde el último punto en pantalla
         if self.polyline_preview_id is not None:
             self.delete(self.polyline_preview_id)
+        sx, sy = self.world_to_screen(x, y)
         self.polyline_preview_id = self.create_line(
-            x, y, x, y,
+            sx, sy, sx, sy,
             dash=(4, 4), fill='gray', width=1
         )
         self._save_state()
@@ -1909,9 +2003,10 @@ class CanvasView(tk.Canvas):
             self._set_status("Duplicado cancelado")
             return
 
-    # ----------------
-    # Poligono
-    # ----------------
+    # ═══════════════════════════════════════════════════════════════
+    # POLÍGONO
+    # ═══════════════════════════════════════════════════════════════
+    
     def _finalizar_poligono(self, x, y):
         """Borra la preview y crea el Polígono definitivo del modelo"""
         # Borrar preview
@@ -1979,16 +2074,12 @@ class CanvasView(tk.Canvas):
         radio = self._get_handle_radio()
         # 1. Actualizar handle centro
         if self.handle_poligono_centro:
-            self.coords(self.handle_poligono_centro,
-                        shape.centro.x - radio, shape.centro.y - radio,
-                        shape.centro.x + radio, shape.centro.y + radio)
+            self.coords(self.handle_poligono_centro, *self._handle_bounds(shape.centro.x, shape.centro.y))
         
-        # 2. Actualizar handles vértices
         vertices = shape.obtener_vertices()
         for i, v in enumerate(vertices):
             if i < len(self.handles_poligono):
-                self.coords(self.handles_poligono[i],
-                            v.x - radio, v.y - radio, v.x + radio, v.y + radio)
+                self.coords(self.handles_poligono[i], *self._handle_bounds(v.x, v.y))
 
     def _detectar_segmento_poligono(self, x, y, shape: Poligono):
         vertices = shape.obtener_vertices()
@@ -2003,9 +2094,10 @@ class CanvasView(tk.Canvas):
                 segmento_cercano = i
         return segmento_cercano
 
-    # ------------------
-    # circulo
-    # ------------------
+    # ═══════════════════════════════════════════════════════════════
+    # CÍRCULO
+    # ═══════════════════════════════════════════════════════════════
+    
     def _finalizar_circulo(self, x, y):
         """Borra la preview y crea el Círculo definitivo del modelo"""
         # Borrar preview
@@ -2042,9 +2134,10 @@ class CanvasView(tk.Canvas):
         self._set_status("Círculo creado")
         self._save_state()
 
-    # --------------
-    # Rectangulo
-    #---------------
+    # ═══════════════════════════════════════════════════════════════
+    # RECTÁNGULO
+    # ═══════════════════════════════════════════════════════════════
+    
     def _finalizar_rectangulo(self, x, y):
         """Borra la preview y crea el Rectángulo definitivo"""
         if self.rectangulo_preview_id is not None:
@@ -2080,27 +2173,26 @@ class CanvasView(tk.Canvas):
         """Muestra handles en las esquinas del rectángulo"""
         for tag in ['handle_nw', 'handle_ne', 'handle_sw', 'handle_se']:
             self.delete(tag)
-        radio = self._get_handle_radio()
         x1, y1 = min(shape.p1.x, shape.p2.x), min(shape.p1.y, shape.p2.y)
         x2, y2 = max(shape.p1.x, shape.p2.x), max(shape.p1.y, shape.p2.y)
         
         self.handle_nw = self.create_oval(
-            x1 - radio, y1 - radio, x1 + radio, y1 + radio,
+            *self._handle_bounds(x1, y1),
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_nw', f'fig_{shape._canvas_id}')
         )
         self.handle_ne = self.create_oval(
-            x2 - radio, y1 - radio, x2 + radio, y1 + radio,
+            *self._handle_bounds(x2, y1),
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_ne', f'fig_{shape._canvas_id}')
         )
         self.handle_sw = self.create_oval(
-            x1 - radio, y2 - radio, x1 + radio, y2 + radio,
+            *self._handle_bounds(x1, y2),
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_sw', f'fig_{shape._canvas_id}')
         )
         self.handle_se = self.create_oval(
-            x2 - radio, y2 - radio, x2 + radio, y2 + radio,
+            *self._handle_bounds(x2, y2),
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_se', f'fig_{shape._canvas_id}')
         )
@@ -2108,9 +2200,10 @@ class CanvasView(tk.Canvas):
         self.tag_raise('handle')
         log.info(f"Handles rectángulo creados: {self.handle_nw}, {self.handle_ne}, {self.handle_sw}, {self.handle_se}")
 
-    # ----------------
-    # Elipse
-    # ----------------
+    # ══════════════════════════════════════════════════════════════
+    # ELIPSE
+    # ═══════════════════════════════════════════════════════════════
+    
     def _finalizar_elipse(self, x, y):
         """Borra la preview y crea la Elipse definitiva"""
         if self.elipse_preview_id is not None:
@@ -2154,24 +2247,23 @@ class CanvasView(tk.Canvas):
         radio = self._get_handle_radio()
         # 1. Handle del centro (Verde)
         self.handle_elipse_centro = self.create_oval(
-            shape.centro.x - radio, shape.centro.y - radio,
-            shape.centro.x + radio, shape.centro.y + radio,
+            *self._handle_bounds(shape.centro.x, shape.centro.y),
             fill='green', outline='white', width=2,
             tags=('handle', 'handle_elipse_centro', f'fig_{shape._canvas_id}')
         )
         
         # 2. Handle Eje X (Azul - Borde derecho)
+        p_x = shape.obtener_punto_eje_x()
         self.handle_elipse_eje_x = self.create_oval(
-            shape.centro.x + shape.radio_x - radio, shape.centro.y - radio,
-            shape.centro.x + shape.radio_x + radio, shape.centro.y + radio,
+            *self._handle_bounds(p_x.x, p_x.y),
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_elipse_eje_x', f'fig_{shape._canvas_id}')
         )
         
         # 3. Handle Eje Y (Azul - Borde inferior)
+        p_y = shape.obtener_punto_eje_y()
         self.handle_elipse_eje_y = self.create_oval(
-            shape.centro.x - radio, shape.centro.y + shape.radio_y - radio,
-            shape.centro.x + radio, shape.centro.y + shape.radio_y + radio,
+            *self._handle_bounds(p_y.x, p_y.y),
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_elipse_eje_y', f'fig_{shape._canvas_id}')
         )
@@ -2216,26 +2308,21 @@ class CanvasView(tk.Canvas):
         radio = self._get_handle_radio()
         # Actualizar centro
         if self.handle_elipse_centro:
-            self.coords(self.handle_elipse_centro,
-                        shape.centro.x - radio, shape.centro.y - radio,
-                        shape.centro.x + radio, shape.centro.y + radio)
+            self.coords(self.handle_elipse_centro, *self._handle_bounds(shape.centro.x, shape.centro.y))
         
-        # Actualizar Eje X
         if self.handle_elipse_eje_x:
             p = shape.obtener_punto_eje_x()
-            self.coords(self.handle_elipse_eje_x,
-                        p.x - radio, p.y - radio, p.x + radio, p.y + radio)
+            self.coords(self.handle_elipse_eje_x, *self._handle_bounds(p.x, p.y))
         
-        # Actualizar Eje Y
         if self.handle_elipse_eje_y:
             p = shape.obtener_punto_eje_y()
-            self.coords(self.handle_elipse_eje_y,
-                        p.x - radio, p.y - radio, p.x + radio, p.y + radio)
+            self.coords(self.handle_elipse_eje_y, *self._handle_bounds(p.x, p.y))
 
 
-    # ----------------------
-    # Manejadores de circulo
-    # ----------------------
+    # ═══════════════════════════════════════════════════════════════
+    # CÍRCULO HANDLES
+    # ═══════════════════════════════════════════════════════════════
+    
     def _mostrar_handles_circulo(self, shape: Circulo):
         """Muestra handles en el centro y en el perímetro del círculo"""
         log.info(f"Mostrando handles del circulo: centro={shape.centro}, radio={shape.radio}")
@@ -2243,22 +2330,17 @@ class CanvasView(tk.Canvas):
         # NO borrar todos los handles, solo los de círculo
         self.delete('handle_circulo_centro')
         self.delete('handle_circulo_perimetro')
-        radio = self._get_handle_radio()
-        # Handle del centro (verde)
         self.handle_circulo_centro = self.create_oval(
-            shape.centro.x - radio, shape.centro.y - radio,
-            shape.centro.x + radio, shape.centro.y + radio,
+            *self._handle_bounds(shape.centro.x, shape.centro.y),
             fill='green', outline='white', width=2,
             tags=('handle', 'handle_circulo_centro', f'fig_{shape._canvas_id}')
         )
         
         log.info(f"Handle centro creado: {self.handle_circulo_centro}")
 
-        # Handle del perímetro (azul) - a la derecha del centro
         punto_perimetro = shape.obtener_punto_perimetro()
         self.handle_circulo_perimetro = self.create_oval(
-            punto_perimetro.x - radio, punto_perimetro.y - radio,
-            punto_perimetro.x + radio, punto_perimetro.y + radio,
+            *self._handle_bounds(punto_perimetro.x, punto_perimetro.y),
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_circulo_perimetro', f'fig_{shape._canvas_id}')
         )
@@ -2304,20 +2386,16 @@ class CanvasView(tk.Canvas):
         radio = self._get_handle_radio()
         # Actualizar handle centro
         if self.handle_circulo_centro is not None:
-            self.coords(self.handle_circulo_centro,
-                        shape.centro.x - radio, shape.centro.y - radio,
-                        shape.centro.x + radio, shape.centro.y + radio)
+            self.coords(self.handle_circulo_centro, *self._handle_bounds(shape.centro.x, shape.centro.y))
         
-        # Actualizar handle perímetro
         if self.handle_circulo_perimetro is not None:
             punto_perimetro = shape.obtener_punto_perimetro()
-            self.coords(self.handle_circulo_perimetro,
-                        punto_perimetro.x - radio, punto_perimetro.y - radio,
-                        punto_perimetro.x + radio, punto_perimetro.y + radio)
+            self.coords(self.handle_circulo_perimetro, *self._handle_bounds(punto_perimetro.x, punto_perimetro.y))
 
-    # -------------
-    # Arco
-    #--------------
+    # ═══════════════════════════════════════════════════════════════
+    # ARCO
+    # ═══════════════════════════════════════════════════════════════
+    
     def _finalizar_arco(self, x, y):
         """Crea el arco definitivo tras el tercer clic"""
         # Borrar preview
@@ -2381,11 +2459,8 @@ class CanvasView(tk.Canvas):
         self.delete('handle_arco_centro')
         self.delete('handle_arco_inicio')
         self.delete('handle_arco_final')
-        radio = self._get_handle_radio()
-        # 1. Handle del centro (Verde)
         self.handle_arco_centro = self.create_oval(
-            shape.centro.x - radio, shape.centro.y - radio,
-            shape.centro.x + radio, shape.centro.y + radio,
+            *self._handle_bounds(shape.centro.x, shape.centro.y),
             fill='green', outline='white', width=2,
             tags=('handle', 'handle_arco_centro',f'fig_{shape._canvas_id}')
         )
@@ -2393,8 +2468,7 @@ class CanvasView(tk.Canvas):
         # 2. Handle del punto inicial (Azul)
         p_inicio = shape.obtener_punto_inicio()
         self.handle_arco_inicio = self.create_oval(
-            p_inicio.x - radio, p_inicio.y - radio,
-            p_inicio.x + radio, p_inicio.y + radio,
+            *self._handle_bounds(p_inicio.x, p_inicio.y),
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_arco_inicio', f'fig_{shape._canvas_id}')
         )
@@ -2402,8 +2476,7 @@ class CanvasView(tk.Canvas):
         # 3. Handle del punto final (Azul)
         p_final = shape.obtener_punto_final()
         self.handle_arco_final = self.create_oval(
-            p_final.x - radio, p_final.y - radio,
-            p_final.x + radio, p_final.y + radio,
+            *self._handle_bounds(p_final.x, p_final.y),
             fill='blue', outline='white', width=2,
             tags=('handle', 'handle_arco_final', f'fig_{shape._canvas_id}')
         )
@@ -2448,21 +2521,15 @@ class CanvasView(tk.Canvas):
         radio = self._get_handle_radio()
         # Actualizar centro
         if self.handle_arco_centro:
-            self.coords(self.handle_arco_centro,
-                        shape.centro.x - radio, shape.centro.y - radio,
-                        shape.centro.x + radio, shape.centro.y + radio)
+            self.coords(self.handle_arco_centro, *self._handle_bounds(shape.centro.x, shape.centro.y))
         
-        # Actualizar punto inicial
         if self.handle_arco_inicio:
             p = shape.obtener_punto_inicio()
-            self.coords(self.handle_arco_inicio,
-                        p.x - radio, p.y - radio, p.x + radio, p.y + radio)
+            self.coords(self.handle_arco_inicio, *self._handle_bounds(p.x, p.y))
         
-        # Actualizar punto final
         if self.handle_arco_final:
             p = shape.obtener_punto_final()
-            self.coords(self.handle_arco_final,
-                        p.x - radio, p.y - radio, p.x + radio, p.y + radio)
+            self.coords(self.handle_arco_final, *self._handle_bounds(p.x, p.y))
 
     # ---------------
     # Texto Manejo
@@ -2476,24 +2543,24 @@ class CanvasView(tk.Canvas):
             if bbox:
                 x1, y1, x2, y2 = bbox
                 self.delete('handle')
-                
+                screen_radio = self.TAMANO_BASE / 2
                 self.handle_nw = self.create_oval(
-                    x1 - radio, y1 - radio, x1 + radio, y1 + radio,
+                    x1 - screen_radio, y1 - screen_radio, x1 + screen_radio, y1 + screen_radio,
                     fill='blue', outline='white', width=2,
                     tags=('handle', 'handle_nw', f'fig_{shape._canvas_id}')
                 )
                 self.handle_ne = self.create_oval(
-                    x2 - radio, y1 - radio, x2 + radio, y1 + radio,
+                    x2 - screen_radio, y1 - screen_radio, x2 + screen_radio, y1 + screen_radio,
                     fill='blue', outline='white', width=2,
                     tags=('handle', 'handle_ne', f'fig_{shape._canvas_id}')
                 )
                 self.handle_sw = self.create_oval(
-                    x1 - radio, y2 - radio, x1 + radio, y2 + radio,
+                    x1 - screen_radio, y2 - screen_radio, x1 + screen_radio, y2 + screen_radio,
                     fill='blue', outline='white', width=2,
                     tags=('handle', 'handle_sw', f'fig_{shape._canvas_id}')
                 )
                 self.handle_se = self.create_oval(
-                    x2 - radio, y2 - radio, x2 + radio, y2 + radio,
+                    x2 - screen_radio, y2 - screen_radio, x2 + screen_radio, y2 + screen_radio,
                     fill='blue', outline='white', width=2,
                     tags=('handle', 'handle_se', f'fig_{shape._canvas_id}')
                 )
@@ -2872,7 +2939,10 @@ class CanvasView(tk.Canvas):
         self._restore_state(next_state)
         log.info("Acción rehecha")
     
-    # Actualizar color de linea / relleno objetos seleccionados.
+    # ═══════════════════════════════════════════════════════════════
+    # ACTUALIZAR PROPIEDADES
+    # ═══════════════════════════════════════════════════════════════
+    
     def actualizar_color_seleccionado(self, nuevo_color):
         """Actualiza el color de contorno de la figura seleccionada"""
         if not self.shape_seleccionada:
@@ -2998,7 +3068,7 @@ class CanvasView(tk.Canvas):
     def _on_double_click(self, e):
         """Abre la ventana de propiedades si hay algo seleccionado bajo el ratón"""
         # Convertir a coords del mundo y crear evento falso
-        e = self._make_world_event(e)  # ← Reemplazamos e por el evento transformado
+        # e = self._make_world_event(e)  # ← Reemplazamos e por el evento transformado
         if self.shape_seleccionada is not None:
             from ui.properties_window import PropertiesWindow
             
