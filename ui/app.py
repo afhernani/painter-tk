@@ -121,6 +121,8 @@ class App(tk.Frame):
         optionmenu.add_checkbutton(
             label="Ejes de coordenadas", variable=self.var_ejes, command=self._toggle_ejes )
         optionmenu.add_separator()
+        optionmenu.add_command(label='Export as PNG', command=self.export_png)
+        optionmenu.add_separator()
         optionmenu.add_command(label='Exit', command=self.master.destroy)
     
     def _on_polygon_sides_change(self, sides):
@@ -242,15 +244,34 @@ class App(tk.Frame):
             filetypes=[('PNG images', '*.png'), ('All files', '*.*')]
         )
         if filepath:
-            width, height = config.get_canvas_size()
+            # Preferir el tamaño real del widget canvas si está disponible
+            try:
+                width = int(self.canvasview.winfo_width() or config.get_canvas_size()[0])
+                height = int(self.canvasview.winfo_height() or config.get_canvas_size()[1])
+            except Exception:
+                width, height = config.get_canvas_size()
+
             bg_color = config.get('Pen', 'default_color_bg', 'white')
-            
+
+            # Crear transform que replica world_to_screen del canvas (incluye pan/zoom)
+            try:
+                zoom = getattr(self.canvasview, 'zoom', 1.0)
+                pan_x = getattr(self.canvasview, 'pan_x', 0.0)
+                pan_y = getattr(self.canvasview, 'pan_y', 0.0)
+                transform = lambda wx, wy: (wx * zoom + pan_x, wy * zoom + pan_y)
+                scale = zoom
+            except Exception:
+                transform = None
+                scale = 1.0
+
             export_to_png(
                 self.canvasview.shapes,
                 filepath,
                 width=width,
                 height=height,
-                bg_color=bg_color
+                bg_color=bg_color,
+                transform=transform,
+                scale=scale
             )
             self.statusbar.set_text(f"Imagen exportada: {filepath}")
     

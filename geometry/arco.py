@@ -54,19 +54,44 @@ class Arco(Shape):
         if self._canvas_id is not None:
             canvas.itemconfig(self._canvas_id, outline=self.color, width=self.grosor)
     
-    def dibujar_en_pil(self, draw):
+    def dibujar_en_pil(self, draw, transform=None, scale=1.0):
         """Dibuja el arco en una imagen PIL"""
-        bbox = [
-            self.centro.x - self.radio, self.centro.y - self.radio,
-            self.centro.x + self.radio, self.centro.y + self.radio
-        ]
-        draw.arc(
-            bbox,
-            start=self.angulo_inicio,
-            end=self.angulo_inicio + self.extension,
-            fill=self.color,
-            width=int(self.grosor)
-        )
+        if transform is None:
+            transform = lambda x, y: (x, y)
+
+        # Construir puntos muestreados desde angulo_inicio hasta angulo_inicio+extension
+        if self.extension == 0:
+            return
+
+        start_deg = float(self.angulo_inicio)
+        end_deg = float(self.angulo_inicio + self.extension)
+
+        # Normalizar número de pasos para suavidad (aprox 1° por segmento, mínimo 4)
+        total_deg = abs(end_deg - start_deg)
+        steps = max(4, int(total_deg / 1.0))
+
+        # Generar ángulos en radianes y calcular puntos en coordenadas del mundo
+        puntos = []
+        for i in range(steps + 1):
+            t = i / steps
+            ang_deg = start_deg + t * (end_deg - start_deg)
+            ang = math.radians(ang_deg)
+            xw = self.centro.x + self.radio * math.cos(ang)
+            # Usar convención de Y coherente con create_arc (invertida)
+            yw = self.centro.y - self.radio * math.sin(ang)
+            puntos.append(transform(xw, yw))
+
+        stroke = max(1, int(self.grosor * scale))
+        # Dibujar como polilínea para evitar dependencias de convención de ángulos
+        try:
+            draw.line(puntos, fill=self.color, width=stroke)
+        except Exception:
+            # Fallback: si draw.line falla, intentar usar arc sobre bbox aproximado
+            x1w, y1w = self.centro.x - self.radio, self.centro.y - self.radio
+            x2w, y2w = self.centro.x + self.radio, self.centro.y + self.radio
+            x1, y1 = transform(x1w, y1w)
+            x2, y2 = transform(x2w, y2w)
+            draw.arc([x1, y1, x2, y2], start=start_deg, end=end_deg, fill=self.color, width=stroke)
     
     def mover(self, dx: float, dy: float):
         """Mueve el arco"""

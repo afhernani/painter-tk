@@ -91,13 +91,17 @@ class Rectangulo(Shape):
             relleno=data.get("relleno", "")
         )
 
-    def dibujar_en_pil(self, draw):
+    def dibujar_en_pil(self, draw, transform=None, scale=1.0):
         """Dibuja el rectángulo en una imagen PIL"""
-        bbox = [
-            min(self.p1.x, self.p2.x), min(self.p1.y, self.p2.y),
-            max(self.p1.x, self.p2.x), max(self.p1.y, self.p2.y)
-        ]
-        draw.rectangle(bbox, outline=self.color, width=int(self.grosor))
+        if transform is None:
+            transform = lambda x, y: (x, y)
+
+        x1w, y1w = min(self.p1.x, self.p2.x), min(self.p1.y, self.p2.y)
+        x2w, y2w = max(self.p1.x, self.p2.x), max(self.p1.y, self.p2.y)
+        x1, y1 = transform(x1w, y1w)
+        x2, y2 = transform(x2w, y2w)
+        stroke = max(1, int(self.grosor * scale))
+        draw.rectangle([x1, y1, x2, y2], outline=self.color, width=stroke)
 
     def __repr__(self) -> str:
         return f"Rectangulo({self.p1}, {self.p2}, color={self.color})"

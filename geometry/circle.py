@@ -103,16 +103,26 @@ class Circulo(Shape):
             relleno=data.get("relleno", "")
         )
 
-    def dibujar_en_pil(self, draw):
-        """Dibuja el círculo en una imagen PIL"""
-        # PIL dibuja óvalos dentro de un bounding box
-        bbox = [
-            self.centro.x - self.radio, self.centro.y - self.radio,
-            self.centro.x + self.radio, self.centro.y + self.radio
-        ]
-        # Si hay relleno, lo dibujamos. Si no, solo el borde.
+    def dibujar_en_pil(self, draw, transform=None, scale=1.0):
+        """Dibuja el círculo en una imagen PIL
+
+        Args:
+            draw: objeto ImageDraw
+            transform: función opcional (wx,wy) -> (px,py)
+            scale: factor de escala para grosores y tamaños
+        """
+        if transform is None:
+            transform = lambda x, y: (x, y)
+
+        # Calcular bbox en coordenadas de pantalla/imagen
+        x1w, y1w = self.centro.x - self.radio, self.centro.y - self.radio
+        x2w, y2w = self.centro.x + self.radio, self.centro.y + self.radio
+        x1, y1 = transform(x1w, y1w)
+        x2, y2 = transform(x2w, y2w)
+
         fill_color = self.relleno if self.relleno else None
-        draw.ellipse(bbox, outline=self.color, fill=fill_color, width=int(self.grosor))
+        stroke = max(1, int(self.grosor * scale))
+        draw.ellipse([x1, y1, x2, y2], outline=self.color, fill=fill_color, width=stroke)
 
     def __repr__(self):
         return f"Circulo(centro={self.centro}, radio={self.radio})"

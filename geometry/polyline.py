@@ -66,12 +66,15 @@ class Polyline(Shape):
             grosor=data.get("grosor", 1.0)
         )
 
-    def dibujar_en_pil(self, draw):
+    def dibujar_en_pil(self, draw, transform=None, scale=1.0):
         """Dibuja la polilínea en una imagen PIL"""
         if len(self.puntos) < 2:
             return
-        puntos = [(p.x, p.y) for p in self.puntos]
-        draw.line(puntos, fill=self.color, width=int(self.grosor))
+        if transform is None:
+            transform = lambda x, y: (x, y)
+        puntos = [transform(p.x, p.y) for p in self.puntos]
+        stroke = max(1, int(self.grosor * scale))
+        draw.line(puntos, fill=self.color, width=stroke)
 
     def __repr__(self):
         return f"Polyline({len(self.puntos)} puntos)"

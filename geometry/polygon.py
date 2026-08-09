@@ -112,16 +112,20 @@ class Poligono(Shape):
             relleno=data.get("relleno", "")
         )
 
-    def dibujar_en_pil(self, draw):
+    def dibujar_en_pil(self, draw, transform=None, scale=1.0):
         """Dibuja el polígono en una imagen PIL"""
+        if transform is None:
+            transform = lambda x, y: (x, y)
+
         puntos = []
         for i in range(self.lados):
             angulo = self.rotacion + (2 * math.pi * i / self.lados)
             x = self.centro.x + self.radio * math.cos(angulo)
             y = self.centro.y + self.radio * math.sin(angulo)
-            puntos.append((x, y))
-        
-        draw.polygon(puntos, outline=self.color, width=int(self.grosor))
+            puntos.append(transform(x, y))
+        stroke = max(1, int(self.grosor * scale))
+        draw.polygon(puntos, outline=self.color)
+        # PIL ImageDraw.polygon doesn't accept width prior to Pillow 8.2; emulate with outline only
 
     def __repr__(self):
         return f"Poligono(centro={self.centro}, radio={self.radio}, lados={self.lados})"

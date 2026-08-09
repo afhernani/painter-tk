@@ -96,18 +96,20 @@ class Texto(Shape):
             x, y = _screen_point(canvas, self.posicion.x, self.posicion.y)
             canvas.coords(self._canvas_id, x, y)
     
-    def dibujar_en_pil(self, draw):
+    def dibujar_en_pil(self, draw, transform=None, scale=1.0):
         """Dibuja el texto en una imagen PIL"""
         try:
             from PIL import ImageFont
-            
-            # Construir el nombre de la fuente según el estilo
+
+            if transform is None:
+                transform = lambda x, y: (x, y)
+
+            # Escalar tamaño de fuente según scale
+            font_size = max(1, int(self.tamaño * scale))
             font_name = self.fuente
-            font_size = self.tamaño
-            
+
             # Intentar cargar la fuente TrueType
             try:
-                # Mapear estilos a variantes de fuente comunes
                 if self.negrita and self.cursiva:
                     font_path = f"{font_name} Bold Italic.ttf"
                 elif self.negrita:
@@ -116,26 +118,16 @@ class Texto(Shape):
                     font_path = f"{font_name} Italic.ttf"
                 else:
                     font_path = f"{font_name}.ttf"
-                
                 font = ImageFont.truetype(font_path, font_size)
             except (IOError, OSError):
-                # Si no encuentra la fuente específica, usar la fuente por defecto
                 try:
                     font = ImageFont.truetype("arial.ttf", font_size)
                 except (IOError, OSError):
-                    # Último recurso: fuente por defecto de PIL
                     font = ImageFont.load_default()
-            
-            # Dibujar el texto
-            # Nota: PIL dibuja desde la esquina superior izquierda del texto
-            # Ajustamos la posición para centrar el texto en el punto especificado
-            draw.text(
-                (self.posicion.x, self.posicion.y),
-                self.texto,
-                fill=self.color,
-                font=font
-            )
-            
+
+            px, py = transform(self.posicion.x, self.posicion.y)
+            draw.text((px, py), self.texto, fill=self.color, font=font)
+
         except Exception as e:
             import logging
             log = logging.getLogger('Geometry.Texto')

@@ -75,14 +75,14 @@ class PointShape(Shape):
             grosor=data.get("grosor", 1.0)
         )
 
-    def dibujar_en_pil(self, draw):
+    def dibujar_en_pil(self, draw, transform=None, scale=1.0):
         """Dibuja el punto en una imagen PIL"""
-        r = self.radio
-        bbox = [
-            self.punto.x - r, self.punto.y - r,
-            self.punto.x + r, self.punto.y + r
-        ]
-        draw.ellipse(bbox, fill=self.color)
+        if transform is None:
+            transform = lambda x, y: (x, y)
+        r = self.radio * scale
+        x1, y1 = transform(self.punto.x - r, self.punto.y - r)
+        x2, y2 = transform(self.punto.x + r, self.punto.y + r)
+        draw.ellipse([x1, y1, x2, y2], fill=self.color)
 
     def __repr__(self):
         return f"PointShape({self.punto}, radio={self.radio}, color={self.color})"

@@ -75,12 +75,14 @@ class Linea(Shape):
             grosor=data.get("grosor", 1.0)
         )
 
-    def dibujar_en_pil(self, draw):
+    def dibujar_en_pil(self, draw, transform=None, scale=1.0):
         """Dibuja la línea en una imagen PIL"""
-        draw.line(
-            [(self.p1.x, self.p1.y), (self.p2.x, self.p2.y)],
-            fill=self.color, width=int(self.grosor)
-        )
+        if transform is None:
+            transform = lambda x, y: (x, y)
+        p1 = transform(self.p1.x, self.p1.y)
+        p2 = transform(self.p2.x, self.p2.y)
+        stroke = max(1, int(self.grosor * scale))
+        draw.line([p1, p2], fill=self.color, width=stroke)
 
     def __repr__(self):
         return f"Linea({self.p1}, {self.p2}, color={self.color})"

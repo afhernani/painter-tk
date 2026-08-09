@@ -149,13 +149,17 @@ class Elipse(Shape):
         """Actualiza el radio vertical basado en la distancia al centro"""
         self.radio_y = abs(nuevo_punto.y - self.centro.y)
 
-    def dibujar_en_pil(self, draw):
+    def dibujar_en_pil(self, draw, transform=None, scale=1.0):
         """Dibuja la elipse en una imagen PIL"""
-        bbox = [
-            self.centro.x - self.radio_x, self.centro.y - self.radio_y,
-            self.centro.x + self.radio_x, self.centro.y + self.radio_y
-        ]
-        draw.ellipse(bbox, outline=self.color, width=int(self.grosor))
+        if transform is None:
+            transform = lambda x, y: (x, y)
+
+        x1w, y1w = self.centro.x - self.radio_x, self.centro.y - self.radio_y
+        x2w, y2w = self.centro.x + self.radio_x, self.centro.y + self.radio_y
+        x1, y1 = transform(x1w, y1w)
+        x2, y2 = transform(x2w, y2w)
+        stroke = max(1, int(self.grosor * scale))
+        draw.ellipse([x1, y1, x2, y2], outline=self.color, width=stroke)
 
     def __repr__(self) -> str:
         return f"Elipse(centro={self.centro}, rx={self.radio_x}, ry={self.radio_y}, color={self.color})"
